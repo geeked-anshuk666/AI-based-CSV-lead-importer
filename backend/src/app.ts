@@ -17,5 +17,6 @@ app.post('/api/imports/upload', upload.single('file'), ImportController.uploadCs
 app.get('/api/imports/:runId/progress', ImportController.getProgressStream);
 app.get('/api/imports/history', ImportController.getHistory);
 app.get('/api/imports/:id', ImportController.getRunDetails);
+app.delete('/api/leads/:id', ImportController.deleteLead);
 
 export default app;

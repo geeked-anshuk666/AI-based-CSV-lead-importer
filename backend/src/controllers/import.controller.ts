@@ -108,4 +108,14 @@ export class ImportController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  public static async deleteLead(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await LeadService.deleteLead(id);
+      res.status(200).json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

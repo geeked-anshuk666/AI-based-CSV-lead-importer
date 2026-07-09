@@ -249,6 +249,23 @@ export default function Home() {
     });
   };
 
+  // Delete a lead record directly from the database table (Screenshot 3 request)
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/leads/${leadId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        setDbLeads(prev => prev.filter(l => l.id !== leadId));
+      } else {
+        const errData = await res.json();
+        console.error('Delete failed:', errData.error);
+      }
+    } catch (err) {
+      console.error('Failed to delete lead from database:', err);
+    }
+  };
+
   const resetState = () => {
     setFile(null);
     setUploadData(null);
@@ -365,7 +382,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         {activeView === 'manage' ? (
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-8 border-b border-neutral-900/50 bg-neutral-950/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="p-8 border-b border-neutral-900/30 bg-neutral-950/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-neutral-50 to-neutral-300 bg-clip-text text-transparent">Manage Your Leads</h2>
                 <p className="text-xs text-neutral-500 mt-1 font-medium">Monitor lead status, verify dynamic properties, and check ingestion streams.</p>
@@ -380,7 +397,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="px-8 py-5 border-b border-neutral-900/40 bg-neutral-950/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="px-8 py-5 border-b border-neutral-900/20 bg-neutral-950/10 flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
                 <input 
@@ -403,10 +420,10 @@ export default function Home() {
             </div>
 
             <div className="flex-1 overflow-auto px-8 py-6">
-              <div className="bg-neutral-900/25 border border-neutral-900 rounded-2xl overflow-hidden">
+              <div className="bg-neutral-900/10 border border-neutral-900/40 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-neutral-950/40 text-neutral-400 font-bold border-b border-neutral-900">
+                    <tr className="bg-neutral-950/40 text-neutral-400 font-bold border-b border-neutral-900/40">
                       <th className="p-4 font-semibold">Lead Name</th>
                       <th className="p-4 font-semibold">Email</th>
                       <th className="p-4 font-semibold">Contact</th>
@@ -414,11 +431,12 @@ export default function Home() {
                       <th className="p-4 font-semibold">Company</th>
                       <th className="p-4 font-semibold">Status</th>
                       <th className="p-4 font-semibold">Notes</th>
+                      <th className="p-4 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredLeads.map((lead, idx) => (
-                      <tr key={idx} className="border-b border-neutral-900/50 hover:bg-neutral-900/10 text-neutral-300 transition-colors">
+                      <tr key={idx} className="border-b border-neutral-900/20 hover:bg-neutral-900/10 text-neutral-300 transition-colors">
                         <td className="p-4 font-bold whitespace-nowrap text-neutral-200">{lead.name || '-'}</td>
                         <td className="p-4 whitespace-nowrap text-neutral-400">{lead.email || '-'}</td>
                         <td className="p-4 whitespace-nowrap text-neutral-400">
@@ -441,11 +459,21 @@ export default function Home() {
                         <td className="p-4 text-neutral-400 max-w-xs truncate" title={lead.crmNote || ''}>
                           {lead.crmNote || '-'}
                         </td>
+                        {/* Red X Button to manually delete database lead record */}
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <button
+                            onClick={() => handleDeleteLead(lead.id)}
+                            className="p-1.5 bg-red-950/15 hover:bg-red-950/40 border border-red-900/20 hover:border-red-900/40 rounded-lg text-red-400 transition-all active:scale-[0.92]"
+                            title="Delete Lead Record"
+                          >
+                            <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {filteredLeads.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-12 text-center text-neutral-500">
+                        <td colSpan={8} className="p-12 text-center text-neutral-500">
                           No leads matching search query. Import contacts to fill rows database.
                         </td>
                       </tr>
@@ -462,10 +490,10 @@ export default function Home() {
               <p className="text-xs text-neutral-500 mt-1 font-medium">Verify system processing statistics and worker execution history records.</p>
             </div>
 
-            <div className="bg-neutral-900/25 border border-neutral-900 rounded-2xl overflow-hidden">
+            <div className="bg-neutral-900/25 border border-neutral-900/30 rounded-2xl overflow-hidden">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-neutral-950/60 text-neutral-400 font-bold border-b border-neutral-900">
+                  <tr className="bg-neutral-950/60 text-neutral-400 font-bold border-b border-neutral-900/40">
                     <th className="p-4 font-semibold">Date</th>
                     <th className="p-4 font-semibold">File Name</th>
                     <th className="p-4 font-semibold">Status</th>
@@ -477,7 +505,7 @@ export default function Home() {
                 </thead>
                 <tbody>
                   {history.map((run, idx) => (
-                    <tr key={idx} className="border-b border-neutral-900 hover:bg-neutral-900/10 text-neutral-300 transition-colors">
+                    <tr key={idx} className="border-b border-neutral-900/20 hover:bg-neutral-900/10 text-neutral-300 transition-colors">
                       <td className="p-4 text-neutral-500 whitespace-nowrap">{new Date(run.createdAt).toLocaleString()}</td>
                       <td className="p-4 font-bold whitespace-nowrap text-neutral-200">{run.fileName}</td>
                       <td className="p-4 whitespace-nowrap">
@@ -531,21 +559,19 @@ export default function Home() {
       {/* Stepped Import Wizard Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          {/* Modal Container: min(1200px, 90vw) wide, 85vh high, rounded-20px */}
-          <div className="bg-neutral-900 border border-neutral-850/80 rounded-[20px] w-full max-w-[1200px] h-[85vh] overflow-hidden shadow-2xl flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-neutral-900 border border-neutral-900/40 rounded-[20px] w-full max-w-[1200px] h-[85vh] overflow-hidden shadow-2xl flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
             
-            {/* Modal Header */}
-            <div className="px-8 py-5 border-b border-neutral-850/60 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0">
+            {/* Modal Header: Glaring line removed */}
+            <div className="px-8 py-5 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0">
               <div className="flex items-center gap-6">
                 <h3 className="text-xl font-bold text-neutral-200">Import Leads</h3>
-                {/* Inline Metadata Summary instead of heavy boxes */}
                 {uploadData && importStep === 2 && (
-                  <div className="flex items-center gap-3 text-xs text-neutral-400 border-l border-neutral-800 pl-6 h-5">
-                    <span className="font-semibold text-neutral-300">{uploadData.fileName}</span>
-                    <span className="text-neutral-600">|</span>
-                    <span className="text-teal-400 font-medium">Valid ({uploadData.validCount})</span>
-                    <span className="text-neutral-600">|</span>
-                    <span className="text-neutral-500 font-medium">Skipped ({uploadData.skippedCount})</span>
+                  <div className="flex items-center gap-3 text-xs text-neutral-450 border-l border-neutral-900/60 pl-6 h-5">
+                    <span className="font-semibold text-neutral-350">{uploadData.fileName}</span>
+                    <span className="text-neutral-800">|</span>
+                    <span className="text-teal-400 font-medium">✓ Valid ({uploadData.validCount})</span>
+                    <span className="text-neutral-800">|</span>
+                    <span className="text-neutral-500 font-medium">○ Skipped ({uploadData.skippedCount})</span>
                   </div>
                 )}
               </div>
@@ -557,8 +583,8 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Stepper Progress Indicator */}
-            <div className="px-8 py-3 border-b border-neutral-850/40 bg-neutral-900/20 flex gap-8 items-center h-[50px] shrink-0">
+            {/* Stepper Progress Indicator: Glaring line removed */}
+            <div className="px-8 py-3 bg-neutral-900/20 flex gap-8 items-center h-[50px] shrink-0">
               <div className="flex items-center gap-2">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                   importStep >= 1 ? 'bg-teal-500 text-neutral-950' : 'bg-neutral-800 text-neutral-500'
@@ -587,7 +613,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Modal Body: Dominates the layout space */}
+            {/* Modal Body */}
             <div className="flex-1 overflow-hidden relative bg-neutral-950/20">
               
               {/* Step 1: Upload Dropzone */}
@@ -623,7 +649,7 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div className="bg-neutral-950/40 p-5 rounded-xl border border-neutral-850/40 max-w-xl mx-auto w-full">
+                  <div className="bg-neutral-950/40 p-5 rounded-xl border border-neutral-900/30 max-w-xl mx-auto w-full">
                     <h5 className="text-[10px] uppercase tracking-wider font-bold text-neutral-400 mb-2">Required Headers</h5>
                     <p className="text-[10px] text-neutral-500 leading-relaxed">
                       Headers must match exactly: <code className="text-teal-400 bg-teal-950/30 px-1 py-0.5 rounded">created_at</code>, <code className="text-teal-400 bg-teal-950/30 px-1 py-0.5 rounded">name</code>, <code className="text-teal-400 bg-teal-950/30 px-1 py-0.5 rounded">email</code>, <code className="text-teal-400 bg-teal-950/30 px-1 py-0.5 rounded">country_code</code>, <code className="text-teal-400 bg-teal-950/30 px-1 py-0.5 rounded">mobile_without_country_code</code>.
@@ -632,10 +658,9 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Step 2: Zebra Table Preview with Individual row delete & Sticky Header */}
+              {/* Step 2: Zebra Table Preview with Red Delete button */}
               {importStep === 2 && uploadData && (
                 <div className="h-full flex flex-col p-8 space-y-4">
-                  {/* Clean Search Input */}
                   <div className="relative w-full max-w-xs shrink-0">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-500" />
                     <input 
@@ -643,22 +668,20 @@ export default function Home() {
                       placeholder="Search preview rows..."
                       onChange={(e) => {
                         const query = e.target.value.toLowerCase();
-                        // Local quick filter visual support
                         const tableRows = document.querySelectorAll('.preview-row');
                         tableRows.forEach((row: any) => {
                           const text = row.innerText.toLowerCase();
                           row.style.display = text.includes(query) ? '' : 'none';
                         });
                       }}
-                      className="w-full pl-9 pr-4 py-2 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-200 focus:outline-none transition-all"
+                      className="w-full pl-9 pr-4 py-2 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/60 rounded-xl text-xs text-neutral-200 focus:outline-none transition-all"
                     />
                   </div>
 
-                  {/* Redesigned Clean Preview Table (Rounded 14px, Zebra rows, Horizontal Separators, Sticky Header) */}
-                  <div className="flex-1 overflow-auto border border-neutral-850/80 rounded-[14px] bg-neutral-900/20">
+                  <div className="flex-1 overflow-auto border border-neutral-900/30 rounded-[14px] bg-neutral-900/20">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="bg-neutral-950 text-neutral-400 font-medium border-b border-neutral-850/80 sticky top-0 z-10">
+                        <tr className="bg-neutral-950 text-neutral-400 font-medium border-b border-neutral-900/40 sticky top-0 z-10">
                           {Object.keys(uploadData.previewRows[0] || {}).map((header, idx) => (
                             <th key={idx} className="p-4 bg-neutral-950">{header}</th>
                           ))}
@@ -669,20 +692,21 @@ export default function Home() {
                         {uploadData.previewRows.map((row, rowIdx) => (
                           <tr 
                             key={rowIdx} 
-                            className={`preview-row border-b border-neutral-850/30 text-neutral-300 transition-colors ${
+                            className={`preview-row border-b border-neutral-900/20 text-neutral-300 transition-colors ${
                               rowIdx % 2 === 0 ? 'bg-neutral-900' : 'bg-neutral-950/40'
                             }`}
                           >
                             {Object.values(row).map((val: any, valIdx) => (
                               <td key={valIdx} className="p-4 whitespace-nowrap text-neutral-400">{String(val || '')}</td>
                             ))}
+                            {/* Red X Button to manually delete lead record prior to import (Screenshot 3 style) */}
                             <td className="p-4 text-right whitespace-nowrap">
                               <button
                                 onClick={() => handleRemoveRecord(rowIdx)}
-                                className="p-1 hover:bg-neutral-800 rounded text-neutral-500 hover:text-red-400 transition-all"
-                                title="Remove Record Row"
+                                className="p-1.5 bg-red-950/15 hover:bg-red-950/40 border border-red-900/20 hover:border-red-900/40 rounded-lg text-red-400 transition-all active:scale-[0.92]"
+                                title="Remove Lead Record"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-3.5 h-3.5 stroke-[2.5]" />
                               </button>
                             </td>
                           </tr>
@@ -693,43 +717,35 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Step 3: SSE Processing & Final Summary Statistics */}
+              {/* Step 3: Thick Progress Bar matching Screenshot 2 */}
               {importStep === 3 && (
                 <div className="p-8 h-full flex flex-col justify-center">
                   {isProcessing ? (
-                    <div className="max-w-xl mx-auto w-full text-center space-y-8">
-                      <div className="relative w-14 h-14 mx-auto flex items-center justify-center">
-                        <div className="absolute inset-0 border-4 border-neutral-800 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-teal-500 rounded-full animate-spin border-t-transparent"></div>
-                        <RefreshCw className="w-5 h-5 text-teal-400 animate-pulse" />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-bold text-neutral-200">{statusMessage}</h4>
-                        {stats && (
-                          <p className="text-[11px] text-neutral-400">
-                            Mapped leads: <span className="text-neutral-200 font-semibold">{stats.processed}</span> / Total: <span className="text-neutral-400 font-semibold">{uploadData?.validCount}</span>
-                          </p>
-                        )}
+                    <div className="max-w-2xl mx-auto w-full bg-neutral-900/60 p-8 rounded-2xl border border-neutral-900/40 space-y-5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+                      {/* Top Header Row of Ingestion */}
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-neutral-200 tracking-tight">{statusMessage}</span>
+                        <span className="font-bold text-teal-400">{progress}%</span>
                       </div>
 
-                      {/* Wide Thicker Ingestion Progress Bar (Height 8px) */}
-                      <div className="space-y-2 max-w-md mx-auto">
-                        <div className="w-full bg-neutral-950 rounded-full h-2 overflow-hidden border border-neutral-850">
-                          <div 
-                            className="bg-gradient-to-r from-teal-500 to-emerald-500 h-full transition-all duration-500 rounded-full"
-                            style={{ width: `${progress}%` }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-[9px] text-neutral-500 font-bold tracking-wider">
+                      {/* Wide Thicker Ingestion Progress Bar (Height 12px) */}
+                      <div className="w-full bg-neutral-950 rounded-full h-3 overflow-hidden border border-neutral-900/30">
+                        <div 
+                          className="bg-gradient-to-r from-teal-500 to-emerald-500 h-full transition-all duration-300 rounded-full"
+                          style={{ width: `${progress}%` }}
+                        ></div>
+                      </div>
+
+                      {/* Bottom Info Row */}
+                      {stats && (
+                        <div className="flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
                           <span>0%</span>
-                          <span>{progress}%</span>
+                          <span>Mapped leads: {stats.processed} / Total: {uploadData?.validCount}</span>
                           <span>100%</span>
                         </div>
-                      </div>
+                      )}
                     </div>
                   ) : (
-                    /* Final Success Summary Report card */
                     importResult && (
                       <div className="max-w-xl mx-auto w-full space-y-6">
                         <div className="bg-emerald-950/20 border border-emerald-900/30 p-5 rounded-2xl flex items-center gap-4">
@@ -743,12 +759,12 @@ export default function Home() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="bg-neutral-950/40 p-4 rounded-xl border border-neutral-850/40">
+                          <div className="bg-neutral-950/40 p-4 rounded-xl border border-neutral-900/30">
                             <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block">Imported Records</span>
                             <span className="text-lg font-bold text-teal-400 mt-1 block">{importResult.processedRecords}</span>
                           </div>
 
-                          <div className="bg-neutral-950/40 p-4 rounded-xl border border-neutral-850/40">
+                          <div className="bg-neutral-950/40 p-4 rounded-xl border border-neutral-900/30">
                             <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block">Skipped Records</span>
                             <span className="text-lg font-bold text-neutral-500 mt-1 block">{importResult.skippedRecords}</span>
                           </div>
@@ -761,11 +777,11 @@ export default function Home() {
 
             </div>
 
-            {/* Modal Footer: Rounded 12px buttons */}
-            <div className="px-8 py-5 border-t border-neutral-850/60 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0">
+            {/* Modal Footer: Glaring line removed */}
+            <div className="px-8 py-5 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0">
               <div>
                 {uploadData && importStep === 2 && (
-                  <span className="text-xs text-neutral-500 tracking-wide font-medium">
+                  <span className="text-xs text-neutral-550 tracking-wide font-semibold">
                     {uploadData.fileName} • {uploadData.validCount} records ready
                   </span>
                 )}

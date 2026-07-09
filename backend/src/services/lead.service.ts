@@ -71,4 +71,10 @@ export class LeadService {
       }
     });
   }
+
+  public static async deleteLead(id: string) {
+    return await prisma.lead.delete({
+      where: { id }
+    });
+  }
 }
