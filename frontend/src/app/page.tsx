@@ -34,6 +34,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<'manage' | 'history'>('manage');
   const [showImportModal, setShowImportModal] = useState(false);
   const [importStep, setImportStep] = useState<1 | 2 | 3>(1);
+  const [isModalAnimating, setIsModalAnimating] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   
@@ -183,44 +184,87 @@ export default function Home() {
     }
   };
 
-  const startImportPipeline = () => {
+  const startImportPipeline = async () => {
     if (!uploadData) return;
 
-    setImportStep(3);
-    setIsProcessing(true);
     setError(null);
-    setStatusMessage('Publishing tasks to worker queue...');
+    setIsProcessing(true);
+    setStatusMessage('Sending confirmed records to worker queue...');
 
-    const sse = new EventSource(`${API_BASE}/imports/${uploadData.runId}/progress`);
-    sseRef.current = sse;
+    try {
+      // BUG FIX: Send the (possibly pruned) rows to the confirm endpoint.
+      // The worker has NOT processed anything yet — upload only parsed and stored rows.
+      const confirmRes = await fetch(`${API_BASE}/imports/${uploadData.runId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: uploadData.previewRows })
+      });
 
-    sse.onmessage = (event) => {
-      try {
-        const update = JSON.parse(event.data);
-        setProgress(update.progress);
-        setStats({ processed: update.processed, skipped: update.skipped });
-
-        if (update.status === 'PROCESSING') {
-          setStatusMessage(`Mapping leads dynamically... ${update.progress}%`);
-        } else if (update.status === 'COMPLETED') {
-          setStatusMessage('Import completed successfully!');
-          setIsProcessing(false);
-          sse.close();
-          fetchImportDetails(uploadData.runId);
-          fetchHistory();
-          fetchLeads();
-        }
-      } catch (err) {
-        console.error('Error parsing SSE event data:', err);
+      if (!confirmRes.ok) {
+        const errData = await confirmRes.json();
+        throw new Error(errData.error || 'Failed to confirm import.');
       }
-    };
 
-    sse.onerror = (err) => {
-      console.error('SSE connection lost, polling final status...', err);
+      const confirmData = await confirmRes.json();
+
+      // If user pruned all rows to 0, skip to a completed state immediately
+      if (uploadData.previewRows.length === 0) {
+        setImportStep(3);
+        setIsProcessing(false);
+        setStatusMessage('Import completed — 0 records were selected for import.');
+        setImportResult({
+          ...uploadData,
+          processedRecords: 0,
+          skippedRecords: 0,
+          leads: []
+        });
+        fetchHistory();
+        return;
+      }
+
+      // Transition to step 3 with animation, then subscribe to SSE
+      setIsModalAnimating(true);
+      setTimeout(() => {
+        setImportStep(3);
+        setIsModalAnimating(false);
+      }, 350);
+
+      setStatusMessage(`Mapping ${uploadData.previewRows.length} leads dynamically...`);
+
+      const sse = new EventSource(`${API_BASE}/imports/${uploadData.runId}/progress`);
+      sseRef.current = sse;
+
+      sse.onmessage = (event) => {
+        try {
+          const update = JSON.parse(event.data);
+          setProgress(update.progress);
+          setStats({ processed: update.processed, skipped: update.skipped });
+
+          if (update.status === 'PROCESSING') {
+            setStatusMessage(`Mapping leads dynamically... ${update.progress}%`);
+          } else if (update.status === 'COMPLETED') {
+            setStatusMessage('Import completed successfully!');
+            setIsProcessing(false);
+            sse.close();
+            fetchImportDetails(uploadData.runId);
+            fetchHistory();
+            fetchLeads();
+          }
+        } catch (err) {
+          console.error('Error parsing SSE event data:', err);
+        }
+      };
+
+      sse.onerror = (err) => {
+        console.error('SSE connection lost, polling final status...', err);
+        setIsProcessing(false);
+        sse.close();
+        fetchImportDetails(uploadData.runId);
+      };
+    } catch (err: any) {
+      setError(err.message || 'Failed to start import pipeline.');
       setIsProcessing(false);
-      sse.close();
-      fetchImportDetails(uploadData.runId);
-    };
+    }
   };
 
   const fetchImportDetails = async (runId: string) => {
@@ -273,6 +317,7 @@ export default function Home() {
     setStats(null);
     setProgress(0);
     setError(null);
+    setIsModalAnimating(false);
     setImportStep(1);
   };
 
@@ -558,10 +603,19 @@ export default function Home() {
         )}
       </div>
 
-      {/* Stepped Import Wizard Modal */}
+      {/* Stepped Import Wizard Modal — dynamically sized per step */}
       {showImportModal && (
         <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-neutral-900 border border-neutral-900/40 rounded-[20px] w-full max-w-[1200px] h-[85vh] overflow-hidden shadow-2xl flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+          <div
+            className="bg-neutral-900 border border-neutral-900/40 rounded-[20px] overflow-hidden shadow-2xl flex flex-col relative"
+            style={{
+              transition: 'width 0.45s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.45s cubic-bezier(0.4, 0, 0.2, 1), height 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+              width: '100%',
+              maxWidth: importStep === 2 ? '1200px' : '560px',
+              height: importStep === 2 ? '85vh' : 'auto',
+              minHeight: importStep === 2 ? 'auto' : '420px'
+            }}
+          >
             
             {/* Modal Header: Glaring line removed */}
             <div className="px-8 py-5 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0">
@@ -784,7 +838,7 @@ export default function Home() {
               <div>
                 {uploadData && importStep === 2 && (
                   <span className="text-xs text-neutral-550 tracking-wide font-semibold">
-                    {uploadData.fileName} • {uploadData.validCount} records ready
+                    {uploadData.fileName} • {uploadData.previewRows.length} records ready
                   </span>
                 )}
               </div>
@@ -799,9 +853,10 @@ export default function Home() {
                 {importStep === 2 && uploadData && (
                   <button 
                     onClick={startImportPipeline}
-                    className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
+                    disabled={isModalAnimating}
+                    className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 disabled:opacity-50 text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
                   >
-                    Import {uploadData.validCount} Leads
+                    Import {uploadData.previewRows.length} Leads
                   </button>
                 )}
                 {importStep === 3 && !isProcessing && (

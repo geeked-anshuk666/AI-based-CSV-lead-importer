@@ -14,6 +14,7 @@ app.use(express.json());
 
 // Routes definition
 app.post('/api/imports/upload', upload.single('file'), ImportController.uploadCsv);
+app.post('/api/imports/:runId/confirm', ImportController.confirmImport);
 app.get('/api/imports/:runId/progress', ImportController.getProgressStream);
 app.get('/api/imports/history', ImportController.getHistory);
 app.get('/api/imports/:id', ImportController.getRunDetails);

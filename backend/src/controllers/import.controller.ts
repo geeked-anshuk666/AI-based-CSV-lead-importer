@@ -6,9 +6,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+/**
+ * Temporary in-memory store for parsed CSV rows awaiting user confirmation.
+ * Key: runId, Value: valid rows array
+ * Entries are cleaned up after confirmation or on server restart.
+ */
+const pendingRowsStore = new Map<string, any[]>();
+
 export class ImportController {
   /**
-   * Upload CSV file, parse locally, store PENDING state in DB, publish to Redis Pub/Sub.
+   * Upload CSV file, parse locally, store PENDING state in DB.
+   * Does NOT publish to worker queue yet — waits for user confirmation.
    */
   public static async uploadCsv(req: Request, res: Response): Promise<void> {
     try {
@@ -26,31 +34,73 @@ export class ImportController {
       }
 
       // Early validating filter: filter out rows containing neither email nor mobile/phone key/value.
-      // This helps frontend stats and prevents submitting useless records to the LLM.
       const { valid, skippedCount } = CsvService.validateAndFilterRows(rawRows);
 
       // Create PENDING database record
       const run = await LeadService.createImportRun(req.file.originalname, rawRows.length);
 
-      // Publish task message to workers
-      const taskPayload = {
-        runId: run.id,
-        rows: valid
-      };
+      // Store the valid rows temporarily — waiting for user to confirm with (possibly pruned) rows
+      pendingRowsStore.set(run.id, valid);
 
-      await QueueService.publish('csv_imports', JSON.stringify(taskPayload));
-
-      // Return 202 Accepted with preview statistics
+      // Return 202 Accepted with preview statistics (no queue publish yet)
       res.status(202).json({
         runId: run.id,
         fileName: run.fileName,
         totalRecords: rawRows.length,
         validCount: valid.length,
         skippedCount: skippedCount,
-        previewRows: rawRows.slice(0, 10) // Show up to first 10 rows in frontend preview
+        previewRows: rawRows.slice(0, 50) // Show up to first 50 rows for preview
       });
     } catch (error: any) {
       console.error('Import upload error:', error);
+      res.status(500).json({ error: error.message || 'Internal server error.' });
+    }
+  }
+
+  /**
+   * Confirm import: receive the final (possibly pruned) rows from frontend,
+   * publish ONLY those rows to the worker queue.
+   */
+  public static async confirmImport(req: Request, res: Response): Promise<void> {
+    try {
+      const { runId } = req.params;
+      const { rows: confirmedRows } = req.body;
+
+      // Validate runId exists
+      if (!pendingRowsStore.has(runId) && (!confirmedRows || !Array.isArray(confirmedRows))) {
+        res.status(404).json({ error: 'Import run not found or no rows provided.' });
+        return;
+      }
+
+      // Use the confirmed (pruned) rows from frontend if provided, otherwise use stored valid rows
+      const rowsToProcess: any[] = Array.isArray(confirmedRows) && confirmedRows.length >= 0
+        ? confirmedRows
+        : (pendingRowsStore.get(runId) || []);
+
+      // Clean up the temp store
+      pendingRowsStore.delete(runId);
+
+      if (rowsToProcess.length === 0) {
+        // User pruned everything — mark as completed with 0 records
+        await LeadService.updateImportRunStatus(runId, 'COMPLETED');
+        res.status(200).json({ success: true, message: 'Import confirmed with 0 records. Nothing to process.' });
+        return;
+      }
+
+      // Now publish ONLY the confirmed rows to the worker queue
+      const taskPayload = {
+        runId,
+        rows: rowsToProcess
+      };
+
+      await QueueService.publish('csv_imports', JSON.stringify(taskPayload));
+
+      res.status(200).json({
+        success: true,
+        message: `Import confirmed. ${rowsToProcess.length} records queued for processing.`
+      });
+    } catch (error: any) {
+      console.error('Import confirm error:', error);
       res.status(500).json({ error: error.message || 'Internal server error.' });
     }
   }
