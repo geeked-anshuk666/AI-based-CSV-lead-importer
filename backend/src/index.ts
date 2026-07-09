@@ -12,6 +12,9 @@ async function startServer() {
   await connectDb();
   await connectRedis();
 
+  // Start background worker subscription logic in the same process
+  await import('./worker/worker.js');
+
   app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });
