@@ -50,6 +50,17 @@ export default function Home() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  
+  // State for View Details modal
+  const [selectedHistoryRun, setSelectedHistoryRun] = useState<{
+    id: string;
+    fileName: string;
+    totalRecords: number;
+    processedRecords: number;
+    skippedRecords: number;
+    createdAt: string;
+    leads: any[];
+  } | null>(null);
 
   // State for Step 2: Preview
   const [uploadData, setUploadData] = useState<{
@@ -286,9 +297,31 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setImportResult(data);
+        return data;
       }
     } catch (err) {
       console.error('Error fetching final import details:', err);
+    }
+    return null;
+  };
+
+  const handleViewHistoryDetails = async (run: any) => {
+    try {
+      setError(null);
+      // Fetch details which include all imported leads for this run
+      const res = await fetch(`${API_BASE}/imports/${run.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Store only up to first 10 leads for record preview as requested
+        setSelectedHistoryRun({
+          ...run,
+          leads: data.leads || []
+        });
+      } else {
+        console.error('Failed to fetch details for log view');
+      }
+    } catch (err) {
+      console.error('Error fetching history details:', err);
     }
   };
 
@@ -689,19 +722,7 @@ export default function Home() {
                       <td className="p-4">{run.totalRecords}</td>
                       <td className="p-4 text-right whitespace-nowrap">
                         <button
-                          onClick={() => {
-                            setUploadData({
-                              runId: run.id,
-                              fileName: run.fileName,
-                              totalRecords: run.totalRecords,
-                              validCount: run.processedRecords,
-                              skippedCount: run.skippedRecords,
-                              previewRows: []
-                            });
-                            fetchImportDetails(run.id);
-                            setShowImportModal(true);
-                            setImportStep(2);
-                          }}
+                          onClick={() => handleViewHistoryDetails(run)}
                           className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-[10px] font-bold rounded-xl text-teal-400 transition-all duration-300"
                         >
                           View Details
@@ -1057,6 +1078,138 @@ export default function Home() {
               to   { opacity: 1; transform: scale(1); }
             }
           `}</style>
+        </div>
+      )}
+
+      {/* ── View Details Modal ───────────────────────────────────────────── */}
+      {selectedHistoryRun && (
+        <div className="fixed inset-0 bg-neutral-950/85 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div
+            className="bg-neutral-900 border border-neutral-800/60 rounded-[20px] overflow-hidden shadow-2xl flex flex-col relative w-full"
+            style={{
+              maxWidth: '1000px',
+              height: '75vh',
+            }}
+          >
+            {/* Modal Header */}
+            <div className="px-8 py-5 bg-neutral-900/40 flex justify-between items-center h-[80px] shrink-0 border-b border-neutral-900/40">
+              <div>
+                <h3 className="text-lg font-bold text-neutral-200">Import Log Details</h3>
+                <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
+                  Imported on {new Date(selectedHistoryRun.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedHistoryRun(null)}
+                className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-500 hover:text-neutral-300 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-neutral-950/20">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800/40">
+                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">File Name</span>
+                  <span className="text-xs font-bold text-neutral-200 mt-1 block truncate" title={selectedHistoryRun.fileName}>
+                    {selectedHistoryRun.fileName}
+                  </span>
+                </div>
+                <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800/40">
+                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">Total Records</span>
+                  <span className="text-xs font-bold text-neutral-300 mt-1 block">
+                    {selectedHistoryRun.totalRecords}
+                  </span>
+                </div>
+                <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800/40">
+                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">Processed successfully</span>
+                  <span className="text-xs font-bold text-teal-400 mt-1 block">
+                    {selectedHistoryRun.processedRecords}
+                  </span>
+                </div>
+                <div className="bg-neutral-900/50 p-4 rounded-xl border border-neutral-800/40">
+                  <span className="text-[9px] text-neutral-500 font-bold uppercase tracking-wider block">Skipped Records</span>
+                  <span className="text-xs font-bold text-neutral-500 mt-1 block">
+                    {selectedHistoryRun.skippedRecords}
+                  </span>
+                </div>
+              </div>
+
+              {/* Records Section */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                    Imported Records Preview
+                  </h4>
+                  <span className="text-[10px] text-neutral-500 font-medium">
+                    Showing first {Math.min(10, selectedHistoryRun.leads.length)} of {selectedHistoryRun.leads.length} leads
+                  </span>
+                </div>
+
+                <div className="border border-neutral-900/40 rounded-xl overflow-hidden bg-neutral-900/10">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-neutral-950/60 text-neutral-400 font-semibold border-b border-neutral-900/40">
+                          <th className="p-3 font-semibold">Lead Name</th>
+                          <th className="p-3 font-semibold">Email</th>
+                          <th className="p-3 font-semibold">Contact</th>
+                          <th className="p-3 font-semibold">Company</th>
+                          <th className="p-3 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedHistoryRun.leads.slice(0, 10).map((lead: any, leadIdx: number) => (
+                          <tr
+                            key={lead.id || leadIdx}
+                            className={`border-b border-neutral-900/10 text-neutral-300 transition-colors ${
+                              leadIdx % 2 === 0 ? 'bg-neutral-900/40' : 'bg-neutral-950/20'
+                            }`}
+                          >
+                            <td className="p-3 font-semibold text-neutral-200">{lead.name || '-'}</td>
+                            <td className="p-3 text-neutral-400">{lead.email || '-'}</td>
+                            <td className="p-3 text-neutral-400">
+                              {lead.countryCode ? `${lead.countryCode} ` : ''}{lead.mobileWithoutCountryCode || '-'}
+                            </td>
+                            <td className="p-3 text-neutral-450">{lead.company || '-'}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
+                                lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                                lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                                'bg-red-950/40 text-red-400 border border-red-900/30'
+                              }`}>
+                                {lead.crmStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {selectedHistoryRun.leads.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-8 text-center text-neutral-500 italic">
+                              No records were processed for this run.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-5 bg-neutral-900/40 flex justify-end items-center h-[80px] shrink-0 border-t border-neutral-900/40">
+              <button
+                onClick={() => setSelectedHistoryRun(null)}
+                className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
+              >
+                Close View
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
