@@ -39,11 +39,15 @@ export default function Home() {
 
   // Shared confirmation dialog for both delete contexts
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: 'lead' | 'previewRow';
+    type: 'lead' | 'previewRow' | 'bulkDelete';
     leadId?: string;
     leadName?: string;
     rowIdx?: number;
+    bulkIds?: string[];
   } | null>(null);
+
+  // Bulk selection state for main dashboard
+  const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
 
@@ -319,15 +323,35 @@ export default function Home() {
     }
   };
 
-  // Confirm handler - runs the right deletion based on dialog type
+  // Confirm handler — runs the right deletion based on dialog type
   const handleConfirmDelete = async () => {
     if (!confirmDialog) return;
     if (confirmDialog.type === 'lead' && confirmDialog.leadId) {
       await handleDeleteLead(confirmDialog.leadId);
     } else if (confirmDialog.type === 'previewRow' && confirmDialog.rowIdx !== undefined) {
       handleRemoveRecord(confirmDialog.rowIdx);
+    } else if (confirmDialog.type === 'bulkDelete' && confirmDialog.bulkIds) {
+      // Fire all deletes in parallel for efficiency
+      await Promise.all(confirmDialog.bulkIds.map(id => handleDeleteLead(id)));
+      setSelectedLeads(new Set());
     }
     setConfirmDialog(null);
+  };
+
+  // Toggle a single lead's selection
+  const toggleSelectLead = (id: string) => {
+    setSelectedLeads(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Select or deselect all currently visible (filtered) leads
+  const toggleSelectAll = () => {
+    const allIds = filteredLeads.map((l: any) => l.id);
+    const allSelected = allIds.every((id: string) => selectedLeads.has(id));
+    setSelectedLeads(allSelected ? new Set() : new Set(allIds));
   };
 
   const resetState = () => {
@@ -460,27 +484,69 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="px-8 py-5 border-b border-neutral-900/20 bg-neutral-950/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="relative w-full sm:max-w-xs">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
-                <input
-                  type="text"
-                  placeholder="Enter email or phone number..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none transition-all"
-                />
-              </div>
+            {/* ── Toolbar: search + refresh, or bulk-action bar when rows selected ── */}
+            {selectedLeads.size > 0 ? (
+              <div className="px-8 py-4 border-b border-neutral-900/20 bg-neutral-950/30 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                {/* Count badge */}
+                <span className="px-3 py-1.5 bg-teal-950/40 border border-teal-900/30 rounded-lg text-[11px] font-bold text-teal-400 tabular-nums">
+                  {selectedLeads.size} selected
+                </span>
 
-              <div className="flex gap-2.5 w-full sm:w-auto justify-end">
+                <div className="h-4 w-px bg-neutral-800" />
+
+                {/* Select All */}
                 <button
-                  onClick={fetchLeads}
-                  className="p-2.5 bg-neutral-900/50 border border-neutral-800/80 rounded-xl text-neutral-400 hover:text-neutral-200 transition-all active:scale-[0.96]"
+                  onClick={() => setSelectedLeads(new Set(filteredLeads.map((l: any) => l.id)))}
+                  className="px-3 py-1.5 bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-800/60 rounded-lg text-[11px] font-semibold text-neutral-300 hover:text-neutral-100 transition-all duration-150"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  Select All ({filteredLeads.length})
+                </button>
+
+                {/* Unselect All */}
+                <button
+                  onClick={() => setSelectedLeads(new Set())}
+                  className="px-3 py-1.5 bg-neutral-900/60 hover:bg-neutral-800 border border-neutral-800/60 rounded-lg text-[11px] font-semibold text-neutral-300 hover:text-neutral-100 transition-all duration-150"
+                >
+                  Unselect All
+                </button>
+
+                <div className="flex-1" />
+
+                {/* Bulk Delete */}
+                <button
+                  onClick={() => setConfirmDialog({
+                    type: 'bulkDelete',
+                    bulkIds: Array.from(selectedLeads)
+                  })}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold rounded-lg shadow-md shadow-red-900/20 transition-all duration-150 active:scale-[0.97]"
+                >
+                  <X className="w-3 h-3 stroke-[3]" />
+                  Delete {selectedLeads.size} Records
                 </button>
               </div>
-            </div>
+            ) : (
+              <div className="px-8 py-5 border-b border-neutral-900/20 bg-neutral-950/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Enter email or phone number..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-2.5 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={fetchLeads}
+                    className="p-2.5 bg-neutral-900/50 border border-neutral-800/80 rounded-xl text-neutral-400 hover:text-neutral-200 transition-all active:scale-[0.96]"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-auto px-8 py-6">
               <div className="bg-neutral-900/10 border border-neutral-900/40 rounded-2xl overflow-hidden">
@@ -488,8 +554,18 @@ export default function Home() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-neutral-950/40 text-neutral-400 font-bold border-b border-neutral-900/40">
-                        {/* Sticky X column - always visible on left */}
-                        <th className="p-3 w-10 sticky left-0 z-20 bg-neutral-950/90 backdrop-blur-sm"></th>
+                        {/* Checkbox column header — select all toggle */}
+                        <th className="p-3 w-10 sticky left-0 z-20 bg-neutral-950/90 backdrop-blur-sm">
+                          <input
+                            type="checkbox"
+                            checked={filteredLeads.length > 0 && filteredLeads.every((l: any) => selectedLeads.has(l.id))}
+                            onChange={toggleSelectAll}
+                            className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                            title="Select all"
+                          />
+                        </th>
+                        {/* X column header */}
+                        <th className="p-2 w-8 sticky left-[52px] z-20 bg-neutral-950/90 backdrop-blur-sm"></th>
                         <th className="p-4 font-semibold">Lead Name</th>
                         <th className="p-4 font-semibold">Email</th>
                         <th className="p-4 font-semibold">Contact</th>
@@ -500,48 +576,71 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLeads.map((lead, idx) => (
-                        <tr key={lead.id ?? idx} className="border-b border-neutral-900/20 hover:bg-neutral-900/10 text-neutral-300 transition-colors group">
-                          {/* Red X - sticky left, opens confirmation dialog */}
-                          <td className="p-3 sticky left-0 z-10 bg-neutral-950 group-hover:bg-neutral-900/80 backdrop-blur-sm transition-colors">
-                            <button
-                              onClick={() => setConfirmDialog({
-                                type: 'lead',
-                                leadId: lead.id,
-                                leadName: lead.name || lead.email || 'this lead'
-                              })}
-                              className="w-7 h-7 flex items-center justify-center bg-red-950/20 hover:bg-red-500 border border-red-900/30 hover:border-red-400 rounded-lg text-red-400 hover:text-white transition-all duration-150 active:scale-[0.88] shadow-sm"
-                              title="Delete Lead Record"
-                            >
-                              <X className="w-3.5 h-3.5 stroke-[2.5]" />
-                            </button>
-                          </td>
-                          <td className="p-4 font-bold whitespace-nowrap text-neutral-200">{lead.name || '-'}</td>
-                          <td className="p-4 whitespace-nowrap text-neutral-400">{lead.email || '-'}</td>
-                          <td className="p-4 whitespace-nowrap text-neutral-400">
-                            {lead.countryCode ? `${lead.countryCode} ` : ''}{lead.mobileWithoutCountryCode || '-'}
-                          </td>
-                          <td className="p-4 whitespace-nowrap text-neutral-500">
-                            {new Date(lead.createdAt).toLocaleString()}
-                          </td>
-                          <td className="p-4 whitespace-nowrap text-neutral-400">{lead.company || '-'}</td>
-                          <td className="p-4 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
+                      {filteredLeads.map((lead, idx) => {
+                        const isSelected = selectedLeads.has(lead.id);
+                        return (
+                          <tr
+                            key={lead.id ?? idx}
+                            className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group ${
+                              isSelected
+                                ? 'bg-teal-950/20 hover:bg-teal-950/30'
+                                : 'hover:bg-neutral-900/10'
+                            }`}
+                          >
+                            {/* Checkbox — sticky left col 1 */}
+                            <td className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${
+                              isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                            }`}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectLead(lead.id)}
+                                className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
+                              />
+                            </td>
+                            {/* Red X — sticky col 2 */}
+                            <td className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${
+                              isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                            }`}>
+                              <button
+                                onClick={() => setConfirmDialog({
+                                  type: 'lead',
+                                  leadId: lead.id,
+                                  leadName: lead.name || lead.email || 'this lead'
+                                })}
+                                className="w-6 h-6 flex items-center justify-center bg-red-950/20 hover:bg-red-500 border border-red-900/30 hover:border-red-400 rounded-md text-red-400 hover:text-white transition-all duration-150 active:scale-[0.88]"
+                                title="Delete this lead"
+                              >
+                                <X className="w-3 h-3 stroke-[2.5]" />
+                              </button>
+                            </td>
+                            <td className="p-4 font-bold whitespace-nowrap text-neutral-200">{lead.name || '-'}</td>
+                            <td className="p-4 whitespace-nowrap text-neutral-400">{lead.email || '-'}</td>
+                            <td className="p-4 whitespace-nowrap text-neutral-400">
+                              {lead.countryCode ? `${lead.countryCode} ` : ''}{lead.mobileWithoutCountryCode || '-'}
+                            </td>
+                            <td className="p-4 whitespace-nowrap text-neutral-500">
+                              {new Date(lead.createdAt).toLocaleString()}
+                            </td>
+                            <td className="p-4 whitespace-nowrap text-neutral-400">{lead.company || '-'}</td>
+                            <td className="p-4 whitespace-nowrap">
+                              <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
                                 lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                                  lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
-                                    'bg-red-950/40 text-red-400 border border-red-900/30'
+                                lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                                'bg-red-950/40 text-red-400 border border-red-900/30'
                               }`}>
-                              {lead.crmStatus}
-                            </span>
-                          </td>
-                          <td className="p-4 text-neutral-400 max-w-[160px] truncate" title={lead.crmNote || ''}>
-                            {lead.crmNote || '-'}
-                          </td>
-                        </tr>
-                      ))}
+                                {lead.crmStatus}
+                              </span>
+                            </td>
+                            <td className="p-4 text-neutral-400 max-w-[160px] truncate" title={lead.crmNote || ''}>
+                              {lead.crmNote || '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {filteredLeads.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="p-12 text-center text-neutral-500">
+                          <td colSpan={9} className="p-12 text-center text-neutral-500">
                             No leads matching search query. Import contacts to fill the database.
                           </td>
                         </tr>
@@ -914,12 +1013,16 @@ export default function Home() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-neutral-100 tracking-tight">
-                    {confirmDialog.type === 'lead' ? 'Delete Lead Record' : 'Remove from Import'}
+                    {confirmDialog.type === 'lead' ? 'Delete Lead Record' :
+                     confirmDialog.type === 'bulkDelete' ? `Delete ${confirmDialog.bulkIds?.length} Records` :
+                     'Remove from Import'}
                   </h3>
                   <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
                     {confirmDialog.type === 'lead'
                       ? `This action is permanent and cannot be undone - once deleted, ${confirmDialog.leadName ? `"${confirmDialog.leadName}"` : 'this lead'
                       } will be removed from the database and all associated data will be lost forever.`
+                      : confirmDialog.type === 'bulkDelete'
+                      ? `You are about to permanently delete ${confirmDialog.bulkIds?.length} lead record${(confirmDialog.bulkIds?.length ?? 0) > 1 ? 's' : ''} from the database. This action is irreversible and cannot be undone — all associated data for the selected contacts will be lost forever.`
                       : 'This record will be excluded from the upcoming import. You can always re-upload the CSV file if you change your mind, but this action cannot be undone within the current session.'}
                   </p>
                 </div>
@@ -940,7 +1043,9 @@ export default function Home() {
                   onClick={handleConfirmDelete}
                   className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-900/30 transition-all duration-200 active:scale-[0.97]"
                 >
-                  {confirmDialog.type === 'lead' ? 'Yes, Delete Permanently' : 'Yes, Remove Record'}
+                  {confirmDialog.type === 'lead' ? 'Yes, Delete Permanently' :
+                   confirmDialog.type === 'bulkDelete' ? `Yes, Delete ${confirmDialog.bulkIds?.length} Records` :
+                   'Yes, Remove Record'}
                 </button>
               </div>
             </div>
