@@ -73,6 +73,18 @@ export class LeadService {
   }
 
   public static async deleteLead(id: string) {
+    const lead = await prisma.lead.findUnique({
+      where: { id },
+      select: { importId: true }
+    });
+    if (lead && lead.importId) {
+      await prisma.importRun.update({
+        where: { id: lead.importId },
+        data: {
+          processedRecords: { decrement: 1 }
+        }
+      });
+    }
     return await prisma.lead.delete({
       where: { id }
     });

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { CsvService } from '../services/csv.service.js';
 import { LeadService } from '../services/lead.service.js';
 import { QueueService } from '../services/queue.service.js';
+import { prisma } from '../config/db.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -66,9 +67,9 @@ export class ImportController {
       const { runId } = req.params;
       const { rows: confirmedRows } = req.body;
 
-      // Validate runId exists
-      if (!pendingRowsStore.has(runId) && (!confirmedRows || !Array.isArray(confirmedRows))) {
-        res.status(404).json({ error: 'Import run not found or no rows provided.' });
+      const run = await LeadService.getImportRunDetails(runId);
+      if (!run) {
+        res.status(404).json({ error: 'Import run not found.' });
         return;
       }
 
@@ -79,6 +80,15 @@ export class ImportController {
 
       // Clean up the temp store
       pendingRowsStore.delete(runId);
+
+      // Compute records skipped via preview pruning
+      const initialSkipped = Math.max(0, run.totalRecords - rowsToProcess.length);
+      await prisma.importRun.update({
+        where: { id: runId },
+        data: {
+          skippedRecords: initialSkipped
+        }
+      });
 
       if (rowsToProcess.length === 0) {
         // User pruned everything - mark as completed with 0 records
@@ -92,6 +102,7 @@ export class ImportController {
         runId,
         rows: rowsToProcess
       };
+
 
       await QueueService.publish('csv_imports', JSON.stringify(taskPayload));
 
