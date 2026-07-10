@@ -4,6 +4,7 @@ import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { ImportController } from './controllers/import.controller.js';
 import { LeadService } from './services/lead.service.js';
+import { prisma } from './config/db.js';
 
 const app = express();
 
@@ -40,6 +41,15 @@ LeadService.cleanupStuckRuns();
 LeadService.syncExistingImportStats();
 
 // Routes definition
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'ok', database: 'connected' });
+  } catch (err: any) {
+    console.error('Health check failed:', err);
+    res.status(500).json({ status: 'error', error: err?.message || 'Database connection error' });
+  }
+});
 app.post('/api/imports/upload', uploadLimiter, upload.single('file'), ImportController.uploadCsv);
 app.post('/api/imports/:runId/confirm', uploadLimiter, ImportController.confirmImport);
 app.get('/api/imports/:runId/progress', ImportController.getProgressStream);

@@ -18,7 +18,9 @@ import {
   HelpCircle,
   Check,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Loader2,
+  Server
 } from 'lucide-react';
 
 interface ImportRun {
@@ -105,13 +107,68 @@ export default function Home() {
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:5000/api';
 
+  // Server wake-up check state
+  const [serverState, setServerState] = useState<'checking' | 'sleeping' | 'ready' | 'online'>('checking');
+  const [showWakeModal, setShowWakeModal] = useState(false);
+  const [wakeProgress, setWakeProgress] = useState(0);
+
   useEffect(() => {
-    fetchHistory();
-    fetchLeads();
+    checkServerStatus();
     return () => {
       if (sseRef.current) sseRef.current.close();
     };
   }, []);
+
+  const checkServerStatus = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    try {
+      const res = await fetch(`${API_BASE}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        setServerState('online');
+        fetchHistory();
+        fetchLeads();
+      } else {
+        throw new Error('Server cold starting');
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      setServerState('sleeping');
+      setShowWakeModal(true);
+      startServerPolling();
+    }
+  };
+
+  const startServerPolling = () => {
+    const progressInterval = setInterval(() => {
+      setWakeProgress(prev => {
+        if (prev >= 95) return 95;
+        return prev + 1;
+      });
+    }, 700);
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          clearInterval(pollInterval);
+          clearInterval(progressInterval);
+          setWakeProgress(100);
+          setServerState('ready');
+        }
+      } catch (err) {
+        // Continue polling
+      }
+    }, 3000);
+  };
+
+  const handleStartApp = () => {
+    setShowWakeModal(false);
+    fetchHistory();
+    fetchLeads();
+  };
 
   const fetchHistory = async () => {
     try {
@@ -1398,7 +1455,75 @@ export default function Home() {
           </div>
         </div>
       )}
-    </div>
 
+      {/* ── Server Wake Up Modal ───────────────────────────────────────────── */}
+      {showWakeModal && (
+        <div className="fixed inset-0 bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-neutral-900/95 border border-neutral-850 rounded-[24px] p-8 max-w-md w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            {/* Ambient Background Glow */}
+            <div className="absolute -top-16 -left-16 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Icon Container */}
+            <div className="mb-6 relative flex items-center justify-center">
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-neutral-800 transition-all duration-500 ${
+                serverState === 'ready' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-neutral-900 border-neutral-800'
+              }`}>
+                {serverState === 'ready' ? (
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400 animate-[scaleIn_0.3s_ease-out]" />
+                ) : (
+                  <Server className="w-10 h-10 text-neutral-400 animate-pulse" />
+                )}
+              </div>
+              {serverState !== 'ready' && (
+                <div className="absolute inset-0 border-2 border-teal-500/30 border-t-teal-400 rounded-2xl animate-spin w-20 h-20" />
+              )}
+            </div>
+
+            {/* Status Information */}
+            <h3 className="text-xl font-bold text-neutral-100 mb-2 tracking-tight">
+              {serverState === 'ready' ? 'Server is Ready!' : 'Waking Up Services'}
+            </h3>
+            
+            <p className="text-xs text-neutral-400 leading-relaxed max-w-[280px] mb-6">
+              {serverState === 'ready' 
+                ? 'The Render server and serverless Neon database are awake and connected. Let\'s begin!' 
+                : 'The application runs on Render\'s free tier which goes to sleep. Waking up both the Express server and Neon PostgreSQL...'}
+            </p>
+
+            {/* Progress Bar & Loader */}
+            {serverState !== 'ready' && (
+              <div className="w-full bg-neutral-950 border border-neutral-850 h-2 mb-2 overflow-hidden relative rounded-full">
+                <div 
+                  className="bg-gradient-to-r from-teal-500 to-blue-500 h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${wakeProgress}%` }}
+                />
+              </div>
+            )}
+            
+            {serverState !== 'ready' && (
+              <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block mb-4">
+                Waking up... {wakeProgress}%
+              </span>
+            )}
+
+            {/* Action Button */}
+            {serverState === 'ready' ? (
+              <button
+                onClick={handleStartApp}
+                className="w-full py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-neutral-950 text-xs font-bold rounded-xl shadow-lg shadow-teal-950/20 transition-all duration-300 active:scale-[0.98] cursor-pointer animate-[scaleIn_0.3s_ease-out]"
+              >
+                Let's Start
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-semibold bg-neutral-950/50 px-4 py-2 rounded-lg border border-neutral-850">
+                <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin" />
+                <span>Pinging Render Health Check...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
