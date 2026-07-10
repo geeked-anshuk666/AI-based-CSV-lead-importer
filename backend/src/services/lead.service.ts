@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { Prisma } from '@prisma/client';
 
 export class LeadService {
   public static async createImportRun(fileName: string, totalRecords: number) {
@@ -31,28 +32,35 @@ export class LeadService {
   }
 
   public static async saveLeadsBatch(importId: string, leads: any[]) {
-    // 1. Gather all emails and mobile numbers to query in one batch
+    // 1. Gather all emails and mobile numbers to query in one round-trip
     const emails = leads.map(l => l.email).filter(Boolean) as string[];
     const phones = leads.map(l => l.mobile_without_country_code).filter(Boolean) as string[];
 
-    // 2. Fetch existing leads matching either email or phone
+    // 2. Fetch all existing leads that match any email or phone in this batch
     const existingLeads = await prisma.lead.findMany({
       where: {
         OR: [
-          { email: { in: emails } },
-          { mobileWithoutCountryCode: { in: phones } }
+          ...(emails.length > 0 ? [{ email: { in: emails } }] : []),
+          ...(phones.length > 0 ? [{ mobileWithoutCountryCode: { in: phones } }] : [])
         ]
       }
     });
 
-    for (const lead of leads) {
-      // Find matching existing lead
-      const matched = existingLeads.find(existing =>
-        (lead.email && existing.email && existing.email.toLowerCase() === lead.email.toLowerCase()) ||
-        (lead.mobile_without_country_code && existing.mobileWithoutCountryCode && existing.mobileWithoutCountryCode === lead.mobile_without_country_code)
-      );
+    // Build a fast lookup map: email → existing lead, phone → existing lead
+    const byEmail = new Map(existingLeads.filter(l => l.email).map(l => [l.email!.toLowerCase(), l]));
+    const byPhone = new Map(existingLeads.filter(l => l.mobileWithoutCountryCode).map(l => [l.mobileWithoutCountryCode!, l]));
 
-      // Map fields, keeping existing fields if incoming are empty
+    const toCreate: Prisma.LeadCreateManyInput[] = [];
+    // Updates must remain individual due to field-level merging logic
+    const updatePromises: Promise<any>[] = [];
+
+    for (const lead of leads) {
+      // Find a matching existing record (email takes priority over phone)
+      const matched =
+        (lead.email && byEmail.get(lead.email.toLowerCase())) ||
+        (lead.mobile_without_country_code && byPhone.get(lead.mobile_without_country_code)) ||
+        null;
+
       const leadData = {
         importId,
         name: lead.name || (matched ? matched.name : null),
@@ -73,35 +81,39 @@ export class LeadService {
       };
 
       if (matched) {
+        // Queue update (individual — needs field-level merge & old-run decrement)
         const oldImportId = matched.importId;
-        // Update existing lead (Intelligent Upsert)
-        await prisma.lead.update({
-          where: { id: matched.id },
-          data: leadData
-        });
-
-        // Decrement the processed records count of the old run if the association changed
-        if (oldImportId && oldImportId !== importId) {
-          try {
-            await prisma.importRun.update({
-              where: { id: oldImportId },
-              data: {
-                processedRecords: { decrement: 1 }
+        updatePromises.push(
+          prisma.lead.update({ where: { id: matched.id }, data: leadData }).then(async () => {
+            if (oldImportId && oldImportId !== importId) {
+              try {
+                await prisma.importRun.update({
+                  where: { id: oldImportId },
+                  data: { processedRecords: { decrement: 1 } }
+                });
+              } catch (err) {
+                console.error(`Failed to decrement processedRecords for old run ${oldImportId}:`, err);
               }
-            });
-          } catch (err) {
-            console.error(`Failed to decrement processedRecords for old run ${oldImportId}:`, err);
-          }
-        }
+            }
+          })
+        );
       } else {
-        // Create new lead
-        await prisma.lead.create({
-          data: {
-            ...leadData,
-            createdAt: lead.created_at ? new Date(lead.created_at) : new Date()
-          }
+        // Accumulate new leads for a single bulk insert
+        toCreate.push({
+          ...leadData,
+          createdAt: lead.created_at ? new Date(lead.created_at) : new Date()
         });
       }
+    }
+
+    // 3. Bulk-insert all new leads in one DB round-trip
+    if (toCreate.length > 0) {
+      await prisma.lead.createMany({ data: toCreate, skipDuplicates: true });
+    }
+
+    // 4. Run all updates concurrently (typically a small fraction of the batch)
+    if (updatePromises.length > 0) {
+      await Promise.allSettled(updatePromises);
     }
 
     return { count: leads.length };
