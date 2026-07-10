@@ -6,6 +6,17 @@ Built as a full-stack TypeScript application with Next.js on the frontend, Expre
 
 ---
 
+## Demo
+
+| Service | URL |
+|---|---|
+| Frontend | _Add your Vercel URL here_ |
+| Backend API | _Add your Render URL here_ |
+
+> The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The first request after a period of inactivity can take up to 2 minutes to respond while the instance wakes up. The frontend on Vercel is always instant. If the app appears to hang on first load, wait a moment and try again.
+
+---
+
 ## How it works
 
 You drop a CSV file into the upload area. The backend parses it immediately, returns a row count and a preview of the first 50 records. You review that preview, optionally remove individual rows you do not want, then click Import. That triggers the backend to send the confirmed rows through an AI pipeline in batches of 50. The AI maps each batch to the CRM schema, and the results are saved to the database in real time. Progress streams back to the browser over a Server-Sent Events connection so you see a live percentage counter.
@@ -35,8 +46,8 @@ graph TB
     end
 
     subgraph Data["Data Layer"]
-        PG["PostgreSQL\n(Prisma ORM)"]
-        REDIS["Redis\n(Pub/Sub)"]
+        PG["Neon PostgreSQL\n(Prisma ORM)"]
+        REDIS["Redis\n(Pub/Sub, optional)"]
     end
 
     FE -->|"POST /api/imports/upload"| API
@@ -141,14 +152,19 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript |
+| Frontend Hosting | Vercel |
 | Backend | Node.js 20, Express 4, TypeScript, Multer |
-| AI | Google Gemini 2.5 Flash (primary), OpenRouter cascade (fallback) |
+| Backend Hosting | Render (free tier, `render.yaml`) |
+| AI — Primary | Google Gemini 2.5 Flash (direct API via `@google/generative-ai`) |
+| AI — Fallback 1 | `google/gemini-2.5-flash:free` via OpenRouter |
+| AI — Fallback 2 | `meta-llama/llama-3-8b-instruct:free` via OpenRouter |
+| AI — Fallback 3 | `mistralai/mistral-7b-instruct:free` via OpenRouter |
+| AI — Fallback 4 | `openrouter/auto` (OpenRouter picks best available) |
 | ORM | Prisma 5 |
-| Database | PostgreSQL 15 |
-| Queue | Redis 7 Pub/Sub (with in-memory EventEmitter fallback) |
+| Database | PostgreSQL 15 hosted on Neon (serverless Postgres) |
+| Queue | Redis 7 Pub/Sub with in-memory EventEmitter fallback |
 | Icons | Lucide React |
-| Container | Docker + Docker Compose |
-| Deployment | Render (render.yaml) |
+| Container | Docker + Docker Compose (local development) |
 
 ---
 
@@ -294,19 +310,37 @@ The frontend will be on port 3000, the backend on port 5000.
 
 ---
 
-## Deployment to Render
+## Deployment
 
-The `render.yaml` file defines two services: `groweasy-frontend` and `groweasy-backend`. Import the repository on [render.com](https://render.com), create a managed PostgreSQL database, and set the following environment variables on the backend service:
+### Backend — Render
+
+The `render.yaml` file defines the `groweasy-backend` web service. Connect the repository on [render.com](https://render.com) and set these environment variables:
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | Connection string from your Render Postgres database |
+| `DATABASE_URL` | Your Neon connection string |
 | `GEMINI_API_KEY` | Your Google AI Studio key |
 | `OPENROUTER_API_KEY` | Your OpenRouter key (optional but recommended) |
 
-The frontend reads `NEXT_PUBLIC_API_BASE` which is automatically injected from the backend service host via `render.yaml`.
+Redis is not available on Render's free tier. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically, so nothing breaks.
 
-Redis is not available as a free tier add-on on Render. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically, so the system works without it.
+**Free tier cold start:** Render free instances spin down after 15 minutes of inactivity. The first request after a dormant period can take 50–120 seconds while the container starts. The frontend will appear unresponsive during this time. This is a Render limitation — not a bug in the application. Upgrading to a paid instance eliminates it.
+
+### Frontend — Vercel
+
+Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one environment variable:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_BASE` | Your Render backend URL + `/api` (e.g. `https://groweasy-backend.onrender.com/api`) |
+
+### Database — Neon
+
+Create a free project on [neon.tech](https://neon.tech). Copy the connection string (pooled mode recommended) and set it as `DATABASE_URL` in your Render backend config. Run migrations once after deploying:
+
+```bash
+npx prisma migrate deploy
+```
 
 ---
 
