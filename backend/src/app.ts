@@ -36,6 +36,8 @@ app.use('/api/', apiLimiter);
 
 // Clean up any dangling runs stuck in PROCESSING status on server boot (Edge Case 3)
 LeadService.cleanupStuckRuns();
+// Sync stats of completed runs to match actual leads in DB (self-healing)
+LeadService.syncExistingImportStats();
 
 // Routes definition
 app.post('/api/imports/upload', uploadLimiter, upload.single('file'), ImportController.uploadCsv);

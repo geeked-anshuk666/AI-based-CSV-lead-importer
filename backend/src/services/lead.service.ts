@@ -117,5 +117,46 @@ export class LeadService {
       console.error('[Startup Cleanup] Failed to clean stuck runs:', err);
     }
   }
+
+  /**
+   * Self-healing method: Iterates through all historical completed import runs,
+   * counts the actual leads stored in the DB, and fixes processed/skipped counts
+   * so they are 100% accurate.
+   */
+  public static async syncExistingImportStats() {
+    try {
+      const completedRuns = await prisma.importRun.findMany({
+        where: { status: 'COMPLETED' },
+        include: {
+          _count: {
+            select: { leads: true }
+          }
+        }
+      });
+
+      let updatedCount = 0;
+      for (const run of completedRuns) {
+        const actualProcessed = run._count.leads;
+        const actualSkipped = Math.max(0, run.totalRecords - actualProcessed);
+
+        if (run.processedRecords !== actualProcessed || run.skippedRecords !== actualSkipped) {
+          await prisma.importRun.update({
+            where: { id: run.id },
+            data: {
+              processedRecords: actualProcessed,
+              skippedRecords: actualSkipped
+            }
+          });
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        console.log(`[Startup Self-Healing] Synced stats for ${updatedCount} historical import runs.`);
+      }
+    } catch (err) {
+      console.error('[Startup Self-Healing] Failed to sync historical run stats:', err);
+    }
+  }
 }
 
