@@ -1458,16 +1458,16 @@ export default function Home() {
 
       {/* ── Server Wake Up Modal ───────────────────────────────────────────── */}
       {showWakeModal && (
-        <div className="fixed inset-0 bg-neutral-950/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4 animate-[fadeIn_0.3s_ease-out]">
-          <div className="bg-neutral-900/95 border border-neutral-850 rounded-[24px] p-8 max-w-md w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+        <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-neutral-900 border border-neutral-900/40 rounded-[20px] p-8 max-w-md w-full shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
             {/* Ambient Background Glow */}
             <div className="absolute -top-16 -left-16 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute -bottom-16 -right-16 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
             {/* Icon Container */}
             <div className="mb-6 relative flex items-center justify-center">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-neutral-800 transition-all duration-500 ${
-                serverState === 'ready' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-neutral-900 border-neutral-800'
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-neutral-900/40 transition-all duration-500 ${
+                serverState === 'ready' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-neutral-900 border-neutral-900/40'
               }`}>
                 {serverState === 'ready' ? (
                   <CheckCircle2 className="w-10 h-10 text-emerald-400 animate-[scaleIn_0.3s_ease-out]" />
@@ -1493,7 +1493,7 @@ export default function Home() {
 
             {/* Progress Bar & Loader */}
             {serverState !== 'ready' && (
-              <div className="w-full bg-neutral-950 border border-neutral-850 h-2 mb-2 overflow-hidden relative rounded-full">
+              <div className="w-full bg-neutral-950 border border-neutral-900/40 h-2 mb-2 overflow-hidden relative rounded-full">
                 <div 
                   className="bg-gradient-to-r from-teal-500 to-blue-500 h-full rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${wakeProgress}%` }}
@@ -1516,7 +1516,7 @@ export default function Home() {
                 Let's Start
               </button>
             ) : (
-              <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-semibold bg-neutral-950/50 px-4 py-2 rounded-lg border border-neutral-850">
+              <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-semibold bg-neutral-950/50 px-4 py-2 rounded-lg border border-neutral-900/40">
                 <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin" />
                 <span>Pinging Render Health Check...</span>
               </div>
