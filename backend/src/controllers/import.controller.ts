@@ -89,7 +89,7 @@ export class ImportController {
         return;
       }
 
-      // EC9: Enforce row cap — reject files that exceed the max processable limit
+      // EC9: Enforce row cap - reject files that exceed the max processable limit
       if (rawRows.length > MAX_PENDING_ROWS) {
         res.status(413).json({
           error: `CSV file contains ${rawRows.length.toLocaleString()} rows, which exceeds the maximum of ${MAX_PENDING_ROWS.toLocaleString()} rows per import. Please split the file into smaller chunks.`
@@ -174,7 +174,7 @@ export class ImportController {
         // EC7: If user confirmed 0 rows, auto-delete the empty ImportRun (no point keeping it)
         if (rowsToProcess.length === 0) {
           await prisma.importRun.delete({ where: { id: runId } });
-          console.log(`[EC7] Deleted empty ImportRun ${runId} — user confirmed 0 records.`);
+          console.log(`[EC7] Deleted empty ImportRun ${runId} - user confirmed 0 records.`);
           res.status(200).json({
             success: true,
             message: 'Import confirmed with 0 records. Run deleted to keep logs clean.'

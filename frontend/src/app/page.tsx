@@ -54,7 +54,7 @@ export default function Home() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  
+
   // State for View Details modal
   const [selectedHistoryRun, setSelectedHistoryRun] = useState<{
     id: string;
@@ -339,7 +339,7 @@ export default function Home() {
 
       const startPollingFallback = () => {
         if (pollRef.current) return; // Already polling
-        console.warn('[EC8] SSE unavailable — switching to HTTP polling fallback.');
+        console.warn('[EC8] SSE unavailable - switching to HTTP polling fallback.');
         setStatusMessage('Processing leads... (polling mode)');
 
         pollRef.current = setInterval(async () => {
@@ -510,7 +510,7 @@ export default function Home() {
     }
   };
 
-  // Confirm handler — runs the right deletion based on dialog type
+  // Confirm handler - runs the right deletion based on dialog type
   const handleConfirmDelete = async () => {
     if (!confirmDialog) return;
     if (confirmDialog.type === 'lead' && confirmDialog.leadId) {
@@ -614,8 +614,8 @@ export default function Home() {
             <button
               onClick={() => setActiveView('manage')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeView === 'manage'
-                  ? 'bg-neutral-900/80 text-teal-400 border border-neutral-800/40 shadow-inner'
-                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/30'
+                ? 'bg-neutral-900/80 text-teal-400 border border-neutral-800/40 shadow-inner'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/30'
                 }`}
             >
               <Users className="w-4 h-4" />
@@ -625,8 +625,8 @@ export default function Home() {
             <button
               onClick={() => setActiveView('history')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeView === 'history'
-                  ? 'bg-neutral-900/80 text-teal-400 border border-neutral-800/40 shadow-inner'
-                  : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/30'
+                ? 'bg-neutral-900/80 text-teal-400 border border-neutral-800/40 shadow-inner'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900/30'
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -767,7 +767,7 @@ export default function Home() {
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-neutral-950/40 text-neutral-400 font-bold border-b border-neutral-900/40">
-                        {/* Checkbox column header — select all toggle */}
+                        {/* Checkbox column header - select all toggle */}
                         <th className="p-3 w-10 sticky left-0 z-20 bg-neutral-950/90 backdrop-blur-sm">
                           <input
                             type="checkbox"
@@ -794,16 +794,14 @@ export default function Home() {
                         return (
                           <tr
                             key={lead.id ?? idx}
-                            className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group ${
-                              isSelected
+                            className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group ${isSelected
                                 ? 'bg-teal-950/20 hover:bg-teal-950/30'
                                 : 'hover:bg-neutral-900/10'
-                            }`}
+                              }`}
                           >
-                            {/* Checkbox — sticky left col 1 */}
-                            <td className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${
-                              isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                            }`}>
+                            {/* Checkbox - sticky left col 1 */}
+                            <td className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                              }`}>
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -811,10 +809,9 @@ export default function Home() {
                                 className="w-3.5 h-3.5 rounded accent-teal-500 cursor-pointer"
                               />
                             </td>
-                            {/* Red X — sticky col 2 */}
-                            <td className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${
-                              isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                            }`}>
+                            {/* Red X - sticky col 2 */}
+                            <td className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                              }`}>
                               <button
                                 onClick={() => setConfirmDialog({
                                   type: 'lead',
@@ -833,7 +830,7 @@ export default function Home() {
                                 const now = Date.now();
                                 const createdTime = new Date(lead.createdAt).getTime();
                                 const updatedTime = lead.updatedAt ? new Date(lead.updatedAt).getTime() : 0;
-                                
+
                                 if (updatedTime > 0 && now - updatedTime < 120000) { // 2 minutes
                                   return (
                                     <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-950/60 text-purple-400 border border-purple-800/40 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.4)]">
@@ -861,9 +858,9 @@ export default function Home() {
                             <td className="p-4 whitespace-nowrap">
                               <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
                                 lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                                lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
-                                'bg-red-950/40 text-red-400 border border-red-900/30'
-                              }`}>
+                                  lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                                    'bg-red-950/40 text-red-400 border border-red-900/30'
+                                }`}>
                                 {lead.crmStatus}
                               </span>
                             </td>
@@ -913,8 +910,8 @@ export default function Home() {
                       <td className="p-4 font-bold whitespace-nowrap text-neutral-200">{run.fileName}</td>
                       <td className="p-4 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${run.status === 'COMPLETED' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
-                            run.status === 'PROCESSING' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                              'bg-amber-950/40 text-amber-400 border border-amber-900/30'
+                          run.status === 'PROCESSING' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                            'bg-amber-950/40 text-amber-400 border border-amber-900/30'
                           }`}>
                           {run.status}
                         </span>
@@ -1028,8 +1025,8 @@ export default function Home() {
                     onDrop={!isUploading ? handleDrop : undefined}
                     onClick={!isUploading ? () => fileInputRef.current?.click() : undefined}
                     className={`border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300 relative overflow-hidden group max-w-xl mx-auto w-full ${isUploading
-                        ? 'cursor-not-allowed border-neutral-800 bg-neutral-900/5'
-                        : 'cursor-pointer border-neutral-800 hover:border-neutral-700 bg-neutral-900/10'
+                      ? 'cursor-not-allowed border-neutral-800 bg-neutral-900/5'
+                      : 'cursor-pointer border-neutral-800 hover:border-neutral-700 bg-neutral-900/10'
                       } ${dragActive ? 'border-teal-500 bg-teal-950/10 shadow-lg shadow-teal-500/5' : ''}`}
                   >
                     {isUploading ? (
@@ -1278,16 +1275,16 @@ export default function Home() {
                 <div>
                   <h3 className="text-sm font-bold text-neutral-100 tracking-tight">
                     {confirmDialog.type === 'lead' ? 'Delete Lead Record' :
-                     confirmDialog.type === 'bulkDelete' ? `Delete ${confirmDialog.bulkIds?.length} Records` :
-                     'Remove from Import'}
+                      confirmDialog.type === 'bulkDelete' ? `Delete ${confirmDialog.bulkIds?.length} Records` :
+                        'Remove from Import'}
                   </h3>
                   <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
                     {confirmDialog.type === 'lead'
                       ? `This action is permanent and cannot be undone - once deleted, ${confirmDialog.leadName ? `"${confirmDialog.leadName}"` : 'this lead'
                       } will be removed from the database and all associated data will be lost forever.`
                       : confirmDialog.type === 'bulkDelete'
-                      ? `You are about to permanently delete ${confirmDialog.bulkIds?.length} lead record${(confirmDialog.bulkIds?.length ?? 0) > 1 ? 's' : ''} from the database. This action is irreversible and cannot be undone — all associated data for the selected contacts will be lost forever.`
-                      : 'This record will be excluded from the upcoming import. You can always re-upload the CSV file if you change your mind, but this action cannot be undone within the current session.'}
+                        ? `You are about to permanently delete ${confirmDialog.bulkIds?.length} lead record${(confirmDialog.bulkIds?.length ?? 0) > 1 ? 's' : ''} from the database. This action is irreversible and cannot be undone - all associated data for the selected contacts will be lost forever.`
+                        : 'This record will be excluded from the upcoming import. You can always re-upload the CSV file if you change your mind, but this action cannot be undone within the current session.'}
                   </p>
                 </div>
               </div>
@@ -1308,8 +1305,8 @@ export default function Home() {
                   className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-red-900/30 transition-all duration-200 active:scale-[0.97]"
                 >
                   {confirmDialog.type === 'lead' ? 'Yes, Delete Permanently' :
-                   confirmDialog.type === 'bulkDelete' ? `Yes, Delete ${confirmDialog.bulkIds?.length} Records` :
-                   'Yes, Remove Record'}
+                    confirmDialog.type === 'bulkDelete' ? `Yes, Delete ${confirmDialog.bulkIds?.length} Records` :
+                      'Yes, Remove Record'}
                 </button>
               </div>
             </div>
@@ -1407,9 +1404,8 @@ export default function Home() {
                         {selectedHistoryRun.leads.slice(0, 10).map((lead: any, leadIdx: number) => (
                           <tr
                             key={lead.id || leadIdx}
-                            className={`border-b border-neutral-900/10 text-neutral-300 transition-colors ${
-                              leadIdx % 2 === 0 ? 'bg-neutral-900/40' : 'bg-neutral-950/20'
-                            }`}
+                            className={`border-b border-neutral-900/10 text-neutral-300 transition-colors ${leadIdx % 2 === 0 ? 'bg-neutral-900/40' : 'bg-neutral-950/20'
+                              }`}
                           >
                             <td className="p-3 font-semibold text-neutral-200">{lead.name || '-'}</td>
                             <td className="p-3 text-neutral-400">{lead.email || '-'}</td>
@@ -1418,12 +1414,11 @@ export default function Home() {
                             </td>
                             <td className="p-3 text-neutral-450">{lead.company || '-'}</td>
                             <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                                lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
-                                lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                                lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
-                                'bg-red-950/40 text-red-400 border border-red-900/30'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
+                                  lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                                    lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                                      'bg-red-950/40 text-red-400 border border-red-900/30'
+                                }`}>
                                 {lead.crmStatus}
                               </span>
                             </td>
@@ -1466,9 +1461,8 @@ export default function Home() {
 
             {/* Icon Container */}
             <div className="mb-6 relative flex items-center justify-center">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-neutral-900/40 transition-all duration-500 ${
-                serverState === 'ready' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-neutral-900 border-neutral-900/40'
-              }`}>
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center border border-neutral-900/40 transition-all duration-500 ${serverState === 'ready' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-neutral-900 border-neutral-900/40'
+                }`}>
                 {serverState === 'ready' ? (
                   <CheckCircle2 className="w-10 h-10 text-emerald-400 animate-[scaleIn_0.3s_ease-out]" />
                 ) : (
@@ -1484,23 +1478,23 @@ export default function Home() {
             <h3 className="text-xl font-bold text-neutral-100 mb-2 tracking-tight">
               {serverState === 'ready' ? 'Server is Ready!' : 'Waking Up Services'}
             </h3>
-            
+
             <p className="text-xs text-neutral-400 leading-relaxed max-w-[280px] mb-6">
-              {serverState === 'ready' 
-                ? 'The Render server and serverless Neon database are awake and connected. Let\'s begin!' 
+              {serverState === 'ready'
+                ? 'The Render server and serverless Neon database are awake and connected. Let\'s begin!'
                 : 'The application runs on Render\'s free tier which goes to sleep. Waking up both the Express server and Neon PostgreSQL...'}
             </p>
 
             {/* Progress Bar & Loader */}
             {serverState !== 'ready' && (
               <div className="w-full bg-neutral-950 border border-neutral-900/40 h-2 mb-2 overflow-hidden relative rounded-full">
-                <div 
+                <div
                   className="bg-gradient-to-r from-teal-500 to-blue-500 h-full rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${wakeProgress}%` }}
                 />
               </div>
             )}
-            
+
             {serverState !== 'ready' && (
               <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block mb-4">
                 Waking up... {wakeProgress}%

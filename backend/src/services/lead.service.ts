@@ -47,7 +47,7 @@ export class LeadService {
 
     for (const lead of leads) {
       // Find matching existing lead
-      const matched = existingLeads.find(existing => 
+      const matched = existingLeads.find(existing =>
         (lead.email && existing.email && existing.email.toLowerCase() === lead.email.toLowerCase()) ||
         (lead.mobile_without_country_code && existing.mobileWithoutCountryCode && existing.mobileWithoutCountryCode === lead.mobile_without_country_code)
       );
@@ -134,7 +134,7 @@ export class LeadService {
       });
       if (parentRun) {
         if (parentRun.leads.length <= 1) {
-          // Parent run has only 1 lead left (this one) — delete the run which cascades to the lead
+          // Parent run has only 1 lead left (this one) - delete the run which cascades to the lead
           await prisma.importRun.delete({
             where: { id: lead.importId }
           });

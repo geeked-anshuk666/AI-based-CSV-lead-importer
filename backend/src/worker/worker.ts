@@ -34,11 +34,11 @@ async function startWorker() {
       // Process rows in dynamic batch sizes to scale to 100K+ leads
       for (let i = 0; i < rows.length; i += dynamicBatchSize) {
         const batch = rows.slice(i, i + dynamicBatchSize);
-        
+
         try {
           // Send batch for AI mapping
           const mappedLeads = await AiService.mapLeadsBatch(batch);
-          
+
           // Save mapped leads to PostgreSQL
           if (mappedLeads.length > 0) {
             await LeadService.saveLeadsBatch(runId, mappedLeads);
@@ -67,7 +67,7 @@ async function startWorker() {
           const errMsg = batchErr?.message || String(batchErr);
           console.error(`Failed to process batch indices ${i} to ${i + batch.length}:`, errMsg);
 
-          // EC10: Detect AI quota/key exhaustion — fail the entire run immediately
+          // EC10: Detect AI quota/key exhaustion - fail the entire run immediately
           const isAiExhaustion = errMsg.includes('All AI Mapping services exhausted') ||
             errMsg.includes('quota') ||
             errMsg.includes('429') ||
