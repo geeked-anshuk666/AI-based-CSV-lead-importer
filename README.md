@@ -13,7 +13,7 @@ Built as a full-stack TypeScript application with Next.js on the frontend, Expre
 | Frontend | _Add your Vercel URL here_ |
 | Backend API | _Add your Render URL here_ |
 
-> The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The first request after a period of inactivity can take up to 2 minutes to respond while the instance wakes up. The frontend on Vercel is always instant. If the app appears to hang on first load, wait a moment and try again.
+The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The application handles this gracefully — see the cold start section below.
 
 ---
 
@@ -31,14 +31,16 @@ If a lead already exists in the database (matched by email or mobile number), it
 graph TB
     subgraph Browser["Browser"]
         FE["Next.js Frontend\n(React 19 + Tailwind v4)"]
+        WAKE["Server Wake-Up Modal\n(Cold Start Handler)"]
     end
 
     subgraph Server["Backend — Express + TypeScript"]
+        HEALTH["GET /api/health\n(DB connectivity check)"]
         API["API Layer\n(Rate Limited)"]
         CTRL["Import Controller"]
         CSV["CSV Service\n(Parse + Sanitize + Normalize)"]
         AI["AI Service\n(Gemini 2.5 Flash)"]
-        OR["OpenRouter Fallback\nllama-3 / mistral-7b / auto"]
+        OR["OpenRouter Fallback\ngemini-free / llama-3 / mistral-7b / auto"]
         QUEUE["Queue Service\n(Redis Pub/Sub or In-Memory)"]
         WORKER["Worker\n(Batch Processor)"]
         LEAD["Lead Service\n(Intelligent Upsert)"]
@@ -49,6 +51,12 @@ graph TB
         PG["Neon PostgreSQL\n(Prisma ORM)"]
         REDIS["Redis\n(Pub/Sub, optional)"]
     end
+
+    FE -->|"GET /api/health (2.5s timeout)"| HEALTH
+    HEALTH -->|"DB ping via Prisma"| PG
+    HEALTH -->|"ok / sleeping"| WAKE
+    WAKE -->|"Polls every 3s until ok"| HEALTH
+    WAKE -->|"User clicks Let's Start"| FE
 
     FE -->|"POST /api/imports/upload"| API
     FE -->|"POST /api/imports/:id/confirm"| API
@@ -72,6 +80,10 @@ graph TB
     CTRL --> PG
     LEAD --> PG
 ```
+
+### Cold Start Handling
+
+When the Render free-tier backend is asleep, the first request can take 50–120 seconds. The frontend detects this before loading anything else. On page load, it pings `/api/health` with a 2.5-second timeout. If the server responds within that window, the dashboard loads immediately and the user sees nothing unusual. If the request times out or fails, a full-screen modal appears explaining that the server is waking up, showing a live progress bar (simulated at 1% per 700ms) and pinging `/api/health` every 3 seconds in the background. Once the health check returns 200, the modal switches to a success state and a "Let's Start" button appears. Clicking it loads the dashboard and fetches all data. The `GET /api/health` endpoint runs a `SELECT 1` via Prisma to verify the Neon database is also reachable, not just the Express process.
 
 ### Upload + Confirm Flow
 
@@ -100,7 +112,7 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 - Header normalization to lowercase snake_case before AI sees the data
 - Early row filter: rows with neither an email nor a phone number are skipped before calling the AI, saving tokens
 - Configurable row cap (100,000 rows per import) with clear error messaging if exceeded
-- Preview of the first 50 rows before confirmation
+- Preview of the first 50 rows before confirmation, with horizontal and vertical scrolling and sticky headers
 - Row-level removal from the preview before triggering the actual import
 - Concurrency lock on the confirm endpoint prevents double-submitting the same run
 
@@ -119,6 +131,15 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 - Server-Sent Events stream live progress percentage, processed count, and skipped count
 - Automatic fallback to HTTP polling every 2 seconds if SSE drops (proxy timeout, network interruption)
 - FAILED status surfaces the error message directly in the UI
+
+**Cold start detection and graceful wake-up**
+- On page load, the frontend pings `/api/health` with a 2.5-second timeout before loading any data
+- If the backend responds in time, the dashboard loads normally with no interruption
+- If the server is asleep (Render free tier), a full-screen modal appears showing a live progress bar and the message "Waking Up Services"
+- The frontend polls `/api/health` every 3 seconds until it gets a 200 response
+- Once the server is up, the modal transitions to a success state with a "Let's Start" button
+- Clicking the button loads the full dashboard and triggers all data fetches
+- The health endpoint verifies both the Express process and the Neon database connection before reporting ready
 
 **Import history and database view**
 - Two views: active database leads and import history log
@@ -217,8 +238,9 @@ Indexed on: `email`, `mobile_without_country_code`, and the compound `(import_id
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/imports/upload` | Upload CSV. Returns runId + preview. |
-| POST | `/api/imports/:runId/confirm` | Confirm and queue rows for processing. |
+| GET | `/api/health` | Server and database health check. Returns `{ status: "ok" }` when both Express and Neon are reachable. Used by the frontend cold-start detection. |
+| POST | `/api/imports/upload` | Upload CSV. Returns runId + preview rows. |
+| POST | `/api/imports/:runId/confirm` | Confirm and queue rows for AI processing. |
 | GET | `/api/imports/:runId/progress` | SSE stream of live progress events. |
 | GET | `/api/imports/history` | List all import runs. |
 | GET | `/api/imports/:id` | Get run details including all associated leads. |
@@ -324,7 +346,7 @@ The `render.yaml` file defines the `groweasy-backend` web service. Connect the r
 
 Redis is not available on Render's free tier. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically, so nothing breaks.
 
-**Free tier cold start:** Render free instances spin down after 15 minutes of inactivity. The first request after a dormant period can take 50–120 seconds while the container starts. The frontend will appear unresponsive during this time. This is a Render limitation — not a bug in the application. Upgrading to a paid instance eliminates it.
+**Free tier cold start:** Render free instances spin down after 15 minutes of inactivity. The first request after a dormant period can take 50–120 seconds while the container starts. The frontend handles this automatically with a graceful wake-up modal — see the cold start section above. Upgrading to a paid Render instance eliminates the spin-down entirely.
 
 ### Frontend — Vercel
 
@@ -333,6 +355,8 @@ Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one en
 | Variable | Value |
 |---|---|
 | `NEXT_PUBLIC_API_BASE` | Your Render backend URL + `/api` (e.g. `https://groweasy-backend.onrender.com/api`) |
+
+The frontend does not connect directly to the database. All data fetches go through the Express backend API.
 
 ### Database — Neon
 
@@ -384,3 +408,4 @@ These are not theoretical — each one was triggered during development and addr
 - **AI quota exhaustion**: Detected by error message pattern matching. The run is immediately marked FAILED and remaining rows are counted as skipped rather than silently lost.
 - **SSE drops on long imports**: Automatic fallback to HTTP polling every 2 seconds keeps the frontend tracking progress even through proxy timeouts or flaky connections.
 - **Self-healing import stats**: On startup, processed and skipped counts for all completed runs are recomputed from actual lead counts in the database, so historical data is always consistent even after deletions or crashes.
+- **Render free-tier cold start**: Detected by a 2.5-second timeout on the initial `/api/health` ping. Users see a graceful loading modal instead of a broken or unresponsive dashboard.
