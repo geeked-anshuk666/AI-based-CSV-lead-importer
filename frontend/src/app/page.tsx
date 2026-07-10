@@ -96,7 +96,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [sourceFilter, setSourceFilter] = useState<string>('ALL');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -513,9 +512,8 @@ export default function Home() {
     );
 
     const matchesStatus = statusFilter === 'ALL' || lead.crmStatus === statusFilter;
-    const matchesSource = sourceFilter === 'ALL' || lead.dataSource === sourceFilter;
 
-    return matchesSearch && matchesStatus && matchesSource;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -680,29 +678,16 @@ export default function Home() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full sm:w-40 px-3 py-2.5 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-350 focus:outline-none transition-all cursor-pointer"
+                    className="w-full sm:w-48 px-3 py-2.5 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-350 focus:outline-none transition-all cursor-pointer"
                   >
                     <option value="ALL">All Statuses</option>
-                    <option value="GOOD_LEAD_FOLLOW_UP">GOOD_FOLLOW_UP</option>
-                    <option value="DID_NOT_CONNECT">DID_NOT_CONNECT</option>
-                    <option value="BAD_LEAD">BAD_LEAD</option>
-                    <option value="SALE_DONE">SALE_DONE</option>
-                  </select>
-
-                  {/* Data Source Filter */}
-                  <select
-                    value={sourceFilter}
-                    onChange={(e) => setSourceFilter(e.target.value)}
-                    className="w-full sm:w-40 px-3 py-2.5 bg-neutral-900/50 hover:bg-neutral-900/70 border border-neutral-800/80 focus:border-neutral-700 rounded-xl text-xs text-neutral-350 focus:outline-none transition-all cursor-pointer"
-                  >
-                    <option value="ALL">All Sources</option>
-                    <option value="leads_on_demand">Leads On Demand</option>
-                    <option value="meridian_tower">Meridian Tower</option>
-                    <option value="eden_park">Eden Park</option>
-                    <option value="varah_swamy">Varah Swamy</option>
-                    <option value="sarjapur_plots">Sarjapur Plots</option>
+                    <option value="GOOD_LEAD_FOLLOW_UP">GOOD LEAD FOLLOW UP</option>
+                    <option value="DID_NOT_CONNECT">DID NOT CONNECT</option>
+                    <option value="BAD_LEAD">BAD LEAD</option>
+                    <option value="SALE_DONE">SALE DONE</option>
                   </select>
                 </div>
+
 
                 <div className="flex gap-2.5 w-full lg:w-auto justify-end">
                   <button
