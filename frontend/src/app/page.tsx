@@ -661,7 +661,7 @@ export default function Home() {
               <Database className="w-4.5 h-4.5 text-neutral-950 stroke-[2.5]" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-neutral-200 tracking-tight">LeadFlow AI</h2>
+              <h2 className="text-sm font-bold text-neutral-200 tracking-tight">FlowLead AI</h2>
               <div className="flex items-center gap-1.5 text-[10px] text-teal-400 font-bold uppercase tracking-wider mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
                 <span>Active Portal</span>
