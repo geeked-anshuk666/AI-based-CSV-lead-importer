@@ -170,7 +170,14 @@ export class AiService {
     const ai = new GoogleGenerativeAI(this.geminiKey);
     const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
     
-    const result = await model.generateContent(prompt);
+    // Strict 8-second request timeout race to prevent worker thread hangs
+    const result = await Promise.race([
+      model.generateContent(prompt),
+      new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('Google Gemini API request timed out after 8s')), 8000)
+      )
+    ]);
+
     const text = result.response.text();
     return this.parseJsonResponse(text);
   }
@@ -189,7 +196,8 @@ export class AiService {
         model: model,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
-      })
+      }),
+      signal: AbortSignal.timeout(8000) // 8 seconds timeout
     });
 
     // If model does not support response_format: json_object (returns 400 Bad Request),
@@ -207,7 +215,8 @@ export class AiService {
         body: JSON.stringify({
           model: model,
           messages: [{ role: 'user', content: prompt }]
-        })
+        }),
+        signal: AbortSignal.timeout(8000) // 8 seconds timeout
       });
     }
 
