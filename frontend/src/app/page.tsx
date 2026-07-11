@@ -20,7 +20,8 @@ import {
   X,
   AlertTriangle,
   Loader2,
-  Server
+  Server,
+  User
 } from 'lucide-react';
 
 interface ImportRun {
@@ -105,6 +106,7 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedLeadForDetail, setSelectedLeadForDetail] = useState<any | null>(null);
 
   // Pagination states
   const [page, setPage] = useState(1);
@@ -889,14 +891,18 @@ export default function Home() {
                         return (
                           <tr
                             key={lead.id ?? idx}
-                            className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group ${isSelected
+                            onClick={() => setSelectedLeadForDetail(lead)}
+                            className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group cursor-pointer ${isSelected
                                 ? 'bg-teal-950/20 hover:bg-teal-950/30'
                                 : 'hover:bg-neutral-900/10'
                               }`}
                           >
                             {/* Checkbox - sticky left col 1 */}
-                            <td className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                              }`}>
+                            <td 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                              }`}
+                            >
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -905,8 +911,11 @@ export default function Home() {
                               />
                             </td>
                             {/* Red X - sticky col 2 */}
-                            <td className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                              }`}>
+                            <td 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
+                              }`}
+                            >
                               <button
                                 onClick={() => setConfirmDialog({
                                   type: 'lead',
@@ -919,38 +928,50 @@ export default function Home() {
                                 <X className="w-3 h-3 stroke-[2.5]" />
                               </button>
                             </td>
-                            <td className="p-4 font-bold whitespace-nowrap text-neutral-200 flex items-center gap-2">
-                              <span>{lead.name || '-'}</span>
-                              {(() => {
-                                const now = Date.now();
-                                const createdTime = new Date(lead.createdAt).getTime();
-                                const updatedTime = lead.updatedAt ? new Date(lead.updatedAt).getTime() : 0;
+                            <td 
+                              className="p-4 font-bold whitespace-nowrap text-neutral-200"
+                              title={lead.name || 'Unknown Lead'}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{lead.name || '-'}</span>
+                                {(() => {
+                                  const now = Date.now();
+                                  const createdTime = new Date(lead.createdAt).getTime();
+                                  const updatedTime = lead.updatedAt ? new Date(lead.updatedAt).getTime() : 0;
 
-                                if (updatedTime > 0 && now - updatedTime < 120000) { // 2 minutes
-                                  return (
-                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-950/60 text-purple-400 border border-purple-800/40 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.4)]">
-                                      UPDATED
-                                    </span>
-                                  );
-                                } else if (now - createdTime < 120000) { // 2 minutes
-                                  return (
-                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-teal-950/60 text-teal-400 border border-teal-800/40 animate-pulse shadow-[0_0_10px_rgba(20,184,166,0.4)]">
-                                      NEW
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
+                                  if (updatedTime > 0 && now - updatedTime < 120000) { // 2 minutes
+                                    return (
+                                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-950/60 text-purple-400 border border-purple-800/40 animate-pulse shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+                                        UPDATED
+                                      </span>
+                                    );
+                                  } else if (now - createdTime < 120000) { // 2 minutes
+                                    return (
+                                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-teal-950/60 text-teal-400 border border-teal-800/40 animate-pulse shadow-[0_0_10px_rgba(20,184,166,0.4)]">
+                                        NEW
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
                             </td>
-                            <td className="p-4 whitespace-nowrap text-neutral-400">{lead.email || '-'}</td>
-                            <td className="p-4 whitespace-nowrap text-neutral-400">
+                            <td className="p-4 whitespace-nowrap text-neutral-400" title={lead.email || 'No email provided'}>
+                              {lead.email || '-'}
+                            </td>
+                            <td 
+                              className="p-4 whitespace-nowrap text-neutral-400"
+                              title={lead.mobileWithoutCountryCode ? (lead.countryCode ? `${lead.countryCode} ${lead.mobileWithoutCountryCode}` : lead.mobileWithoutCountryCode) : 'No mobile provided'}
+                            >
                               {lead.countryCode ? `${lead.countryCode} ` : ''}{lead.mobileWithoutCountryCode || '-'}
                             </td>
-                            <td className="p-4 whitespace-nowrap text-neutral-500">
+                            <td className="p-4 whitespace-nowrap text-neutral-500" title={new Date(lead.createdAt).toLocaleString()}>
                               {new Date(lead.createdAt).toLocaleString()}
                             </td>
-                            <td className="p-4 whitespace-nowrap text-neutral-400">{lead.company || '-'}</td>
-                            <td className="p-4 whitespace-nowrap">
+                            <td className="p-4 whitespace-nowrap text-neutral-400" title={lead.company || 'No company provided'}>
+                              {lead.company || '-'}
+                            </td>
+                            <td className="p-4 whitespace-nowrap" title={`Status: ${lead.crmStatus}`}>
                               <span className={`px-2.5 py-1 rounded text-[10px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
                                 lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
                                   lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
@@ -959,7 +980,7 @@ export default function Home() {
                                 {lead.crmStatus}
                               </span>
                             </td>
-                            <td className="p-4 text-neutral-400 max-w-[160px] truncate" title={lead.crmNote || ''}>
+                            <td className="p-4 text-neutral-400 max-w-[160px] truncate" title={lead.crmNote || 'No notes'}>
                               {lead.crmNote || '-'}
                             </td>
                           </tr>
@@ -1629,6 +1650,150 @@ export default function Home() {
                 className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
               >
                 Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Lead Details Modal ───────────────────────────────────────────── */}
+      {selectedLeadForDetail && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
+          style={{ backgroundColor: 'rgba(9, 9, 11, 0.75)', backdropFilter: 'blur(6px)' }}
+        >
+          <div 
+            className="bg-neutral-900 border border-neutral-800/60 rounded-[20px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col relative"
+            style={{ animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) both', maxHeight: '85vh' }}
+          >
+            {/* Header */}
+            <div className="px-8 py-6 bg-neutral-900/40 flex justify-between items-center shrink-0 border-b border-neutral-800/60 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 to-blue-500" />
+              <div>
+                <h3 className="text-xl font-bold text-neutral-100 tracking-tight flex items-center gap-2">
+                  <User className="w-5 h-5 text-teal-400" />
+                  Lead Details
+                </h3>
+                <p className="text-xs text-neutral-400 mt-1">Full information for {selectedLeadForDetail.name || 'this lead'}</p>
+              </div>
+              <button
+                onClick={() => setSelectedLeadForDetail(null)}
+                className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-400 hover:text-neutral-200 transition-all duration-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-8 bg-neutral-950/40">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                {/* Contact Info */}
+                <div className="col-span-2 md:col-span-1 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60 pb-2">Contact Information</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Full Name</span>
+                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.name || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Email Address</span>
+                      <span className="text-sm text-teal-400 font-medium">{selectedLeadForDetail.email || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Phone Number</span>
+                      <span className="text-sm text-neutral-300 font-medium">
+                        {selectedLeadForDetail.countryCode ? `${selectedLeadForDetail.countryCode} ` : ''}
+                        {selectedLeadForDetail.mobileWithoutCountryCode || '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company Info */}
+                <div className="col-span-2 md:col-span-1 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60 pb-2">Professional Info</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Company</span>
+                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.company || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Location</span>
+                      <span className="text-sm text-neutral-300 font-medium">
+                        {[selectedLeadForDetail.city, selectedLeadForDetail.state, selectedLeadForDetail.country].filter(Boolean).join(', ') || '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CRM Details */}
+                <div className="col-span-2 space-y-4 mt-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60 pb-2">CRM Details</h4>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Status</span>
+                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${
+                        selectedLeadForDetail.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
+                        selectedLeadForDetail.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                        selectedLeadForDetail.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                        'bg-red-950/40 text-red-400 border border-red-900/30'
+                      }`}>
+                        {selectedLeadForDetail.crmStatus?.replace(/_/g, ' ') || 'UNKNOWN'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Lead Owner</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.leadOwner || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Data Source</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.dataSource || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Possession Time</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.possessionTime || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Information */}
+                {(selectedLeadForDetail.description || selectedLeadForDetail.crmNote) && (
+                  <div className="col-span-2 space-y-4 mt-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 border-b border-neutral-800/60 pb-2">Notes & Context</h4>
+                    {selectedLeadForDetail.description && (
+                      <div>
+                        <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Description</span>
+                        <p className="text-sm text-neutral-300 font-medium bg-neutral-900/50 p-3 rounded-xl border border-neutral-800/50">
+                          {selectedLeadForDetail.description}
+                        </p>
+                      </div>
+                    )}
+                    {selectedLeadForDetail.crmNote && (
+                      <div>
+                        <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">CRM Note</span>
+                        <p className="text-sm text-neutral-300 font-medium bg-neutral-900/50 p-3 rounded-xl border border-neutral-800/50">
+                          {selectedLeadForDetail.crmNote}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* System Info */}
+                <div className="col-span-2 mt-2 flex justify-between items-center text-[10px] text-neutral-500 font-medium border-t border-neutral-800/60 pt-4">
+                  <div>Added: {new Date(selectedLeadForDetail.createdAt).toLocaleString()}</div>
+                  <div>Last Updated: {new Date(selectedLeadForDetail.updatedAt).toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-5 bg-neutral-900/40 flex justify-end shrink-0 border-t border-neutral-800/60">
+              <button
+                onClick={() => setSelectedLeadForDetail(null)}
+                className="px-6 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
+              >
+                Close Details
               </button>
             </div>
           </div>
