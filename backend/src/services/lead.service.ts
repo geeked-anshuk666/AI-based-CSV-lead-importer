@@ -76,15 +76,20 @@ export class LeadService {
         crmNote: lead.crm_note || (matched ? matched.crmNote : null),
         dataSource: lead.data_source || (matched ? matched.dataSource : null),
         possessionTime: lead.possession_time || (matched ? matched.possessionTime : null),
-        description: lead.description || (matched ? matched.description : null),
-        updatedAt: new Date()
+        description: lead.description || (matched ? matched.description : null)
       };
 
       if (matched) {
         // Queue update (individual — needs field-level merge & old-run decrement)
         const oldImportId = matched.importId;
         updatePromises.push(
-          prisma.lead.update({ where: { id: matched.id }, data: leadData }).then(async () => {
+          prisma.lead.update({
+            where: { id: matched.id },
+            data: {
+              ...leadData,
+              updatedAt: new Date()
+            }
+          }).then(async () => {
             if (oldImportId && oldImportId !== importId) {
               try {
                 await prisma.importRun.update({
