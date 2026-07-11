@@ -9,10 +9,10 @@ const ALLOWED_DATA_SOURCES = ['leads_on_demand', 'meridian_tower', 'eden_park', 
 
 // Cascade of fallback models on OpenRouter
 const OPENROUTER_MODELS = [
-  'google/gemini-2.5-flash', // Standard Gemini
-  'google/gemini-2.5-pro', // Standard Gemini Pro
-  'meta-llama/llama-3-8b-instruct:free',
-  'openrouter/auto' // Last resort
+  'meta-llama/llama-3.1-8b-instruct:free',
+  'qwen/qwen-2-7b-instruct:free',
+  'google/gemma-2-9b-it:free',
+  'openrouter/auto'
 ];
 
 export class AiService {
