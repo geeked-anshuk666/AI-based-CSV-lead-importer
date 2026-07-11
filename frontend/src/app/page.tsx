@@ -41,7 +41,7 @@ export default function Home() {
   const [isModalAnimating, setIsModalAnimating] = useState(false);
   // EC5 frontend: prevent double-clicking "Import X Leads" button
   const [isConfirming, setIsConfirming] = useState(false);
-  // Tracks a permanent confirm failure — once set, the Import button stays disabled
+  // Tracks a permanent confirm failure - once set, the Import button stays disabled
   // until the user cancels and re-uploads. Prevents the 409 re-confirm loop.
   const [confirmFailed, setConfirmFailed] = useState(false);
 
@@ -501,7 +501,7 @@ export default function Home() {
         }
       };
     } catch (err: any) {
-      // Unexpected errors (network down, JSON parse, etc.) — let user retry
+      // Unexpected errors (network down, JSON parse, etc.) - let user retry
       setError(err.message || 'Failed to start import pipeline. Please try again.');
       setIsProcessing(false);
       setIsConfirming(false);
@@ -893,15 +893,15 @@ export default function Home() {
                             key={lead.id ?? idx}
                             onClick={() => setSelectedLeadForDetail(lead)}
                             className={`border-b border-neutral-900/20 text-neutral-300 transition-colors group cursor-pointer ${isSelected
-                                ? 'bg-teal-950/20 hover:bg-teal-950/30'
-                                : 'hover:bg-neutral-900/10'
+                              ? 'bg-teal-950/20 hover:bg-teal-950/30'
+                              : 'hover:bg-neutral-900/10'
                               }`}
                           >
                             {/* Checkbox - sticky left col 1 */}
-                            <td 
+                            <td
                               onClick={(e) => e.stopPropagation()}
                               className={`p-3 sticky left-0 z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                              }`}
+                                }`}
                             >
                               <input
                                 type="checkbox"
@@ -911,10 +911,10 @@ export default function Home() {
                               />
                             </td>
                             {/* Red X - sticky col 2 */}
-                            <td 
+                            <td
                               onClick={(e) => e.stopPropagation()}
                               className={`p-2 sticky left-[52px] z-10 backdrop-blur-sm transition-colors ${isSelected ? 'bg-teal-950/30' : 'bg-neutral-950 group-hover:bg-neutral-900/80'
-                              }`}
+                                }`}
                             >
                               <button
                                 onClick={() => setConfirmDialog({
@@ -928,7 +928,7 @@ export default function Home() {
                                 <X className="w-3 h-3 stroke-[2.5]" />
                               </button>
                             </td>
-                            <td 
+                            <td
                               className="p-4 font-bold whitespace-nowrap text-neutral-200"
                               title={lead.name || 'Unknown Lead'}
                             >
@@ -959,7 +959,7 @@ export default function Home() {
                             <td className="p-4 whitespace-nowrap text-neutral-400" title={lead.email || 'No email provided'}>
                               {lead.email || '-'}
                             </td>
-                            <td 
+                            <td
                               className="p-4 whitespace-nowrap text-neutral-400"
                               title={lead.mobileWithoutCountryCode ? (lead.countryCode ? `${lead.countryCode} ${lead.mobileWithoutCountryCode}` : lead.mobileWithoutCountryCode) : 'No mobile provided'}
                             >
@@ -1006,7 +1006,7 @@ export default function Home() {
                       <span className="text-teal-400 font-bold">{totalFiltered}</span> leads (filtered from{' '}
                       <span className="text-neutral-450 font-bold">{totalUnique}</span> total)
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       {/* Page size toggle */}
                       <div className="flex items-center gap-1.5 mr-4">
@@ -1035,11 +1035,11 @@ export default function Home() {
                         >
                           Previous
                         </button>
-                        
+
                         <div className="px-3 py-1.5 bg-neutral-950 border border-neutral-900/60 rounded-lg text-neutral-350 font-bold min-w-[2.5rem] text-center">
                           {page}
                         </div>
-                        
+
                         <button
                           onClick={() => setPage(p => (p * limit < totalFiltered ? p + 1 : p))}
                           disabled={page * limit >= totalFiltered}
@@ -1241,13 +1241,13 @@ export default function Home() {
               {/* Step 2: Zebra Table Preview with Red Delete button */}
               {importStep === 2 && uploadData && (
                 <div className="h-full flex flex-col p-8 space-y-4">
-                  {/* Inline error banner shown when confirm fails — button stays locked */}
+                  {/* Inline error banner shown when confirm fails - button stays locked */}
                   {confirmFailed && error && (
                     <div className="bg-red-950/20 border border-red-900/30 p-4 rounded-xl flex items-center gap-3 shrink-0">
                       <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-red-400">Import Failed</p>
-                        <p className="text-[11px] text-red-300/70 mt-0.5 leading-relaxed">{error} — Please <strong>Cancel</strong> and re-upload your file to try again.</p>
+                        <p className="text-[11px] text-red-300/70 mt-0.5 leading-relaxed">{error} - Please <strong>Cancel</strong> and re-upload your file to try again.</p>
                       </div>
                     </div>
                   )}
@@ -1374,7 +1374,7 @@ export default function Home() {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Final Active Model Status during failure */}
                       {activeModelMessage && (
                         <div className="bg-neutral-950/80 px-4 py-2.5 rounded-xl border border-neutral-900/60 font-mono text-[10px] text-neutral-400 text-left shadow-sm flex items-center gap-2">
@@ -1438,7 +1438,7 @@ export default function Home() {
                     onClick={startImportPipeline}
                     disabled={isModalAnimating || isConfirming || confirmFailed}
                     className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-950 text-xs font-bold rounded-xl shadow-lg transition-all duration-300"
-                    title={confirmFailed ? 'Import failed — cancel and re-upload to try again' : undefined}
+                    title={confirmFailed ? 'Import failed - cancel and re-upload to try again' : undefined}
                   >
                     {isConfirming ? 'Submitting...' : confirmFailed ? 'Import Failed' : `Import ${uploadData.validCount.toLocaleString()} Leads`}
                   </button>
@@ -1620,9 +1620,9 @@ export default function Home() {
                             <td className="p-3 text-neutral-450">{lead.company || '-'}</td>
                             <td className="p-3">
                               <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${lead.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
-                                  lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                                    lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
-                                      'bg-red-950/40 text-red-400 border border-red-900/30'
+                                lead.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                                  lead.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                                    'bg-red-950/40 text-red-400 border border-red-900/30'
                                 }`}>
                                 {lead.crmStatus}
                               </span>
@@ -1658,11 +1658,11 @@ export default function Home() {
 
       {/* ── Lead Details Modal ───────────────────────────────────────────── */}
       {selectedLeadForDetail && (
-        <div 
+        <div
           className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
           style={{ backgroundColor: 'rgba(9, 9, 11, 0.75)', backdropFilter: 'blur(6px)' }}
         >
-          <div 
+          <div
             className="bg-neutral-900 border border-neutral-800/60 rounded-[20px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col relative"
             style={{ animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) both', maxHeight: '85vh' }}
           >
@@ -1693,17 +1693,17 @@ export default function Home() {
                   <div className="space-y-3">
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Full Name</span>
-                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.name || '—'}</span>
+                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.name || '-'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Email Address</span>
-                      <span className="text-sm text-teal-400 font-medium">{selectedLeadForDetail.email || '—'}</span>
+                      <span className="text-sm text-teal-400 font-medium">{selectedLeadForDetail.email || '-'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Phone Number</span>
                       <span className="text-sm text-neutral-300 font-medium">
                         {selectedLeadForDetail.countryCode ? `${selectedLeadForDetail.countryCode} ` : ''}
-                        {selectedLeadForDetail.mobileWithoutCountryCode || '—'}
+                        {selectedLeadForDetail.mobileWithoutCountryCode || '-'}
                       </span>
                     </div>
                   </div>
@@ -1715,12 +1715,12 @@ export default function Home() {
                   <div className="space-y-3">
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Company</span>
-                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.company || '—'}</span>
+                      <span className="text-sm text-neutral-200 font-medium">{selectedLeadForDetail.company || '-'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Location</span>
                       <span className="text-sm text-neutral-300 font-medium">
-                        {[selectedLeadForDetail.city, selectedLeadForDetail.state, selectedLeadForDetail.country].filter(Boolean).join(', ') || '—'}
+                        {[selectedLeadForDetail.city, selectedLeadForDetail.state, selectedLeadForDetail.country].filter(Boolean).join(', ') || '-'}
                       </span>
                     </div>
                   </div>
@@ -1732,26 +1732,25 @@ export default function Home() {
                   <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Status</span>
-                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${
-                        selectedLeadForDetail.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
-                        selectedLeadForDetail.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
-                        selectedLeadForDetail.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
-                        'bg-red-950/40 text-red-400 border border-red-900/30'
-                      }`}>
+                      <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${selectedLeadForDetail.crmStatus === 'SALE_DONE' ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/30' :
+                          selectedLeadForDetail.crmStatus === 'GOOD_LEAD_FOLLOW_UP' ? 'bg-teal-950/40 text-teal-400 border border-teal-900/30' :
+                            selectedLeadForDetail.crmStatus === 'DID_NOT_CONNECT' ? 'bg-amber-950/40 text-amber-400 border border-amber-900/30' :
+                              'bg-red-950/40 text-red-400 border border-red-900/30'
+                        }`}>
                         {selectedLeadForDetail.crmStatus?.replace(/_/g, ' ') || 'UNKNOWN'}
                       </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Lead Owner</span>
-                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.leadOwner || '—'}</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.leadOwner || '-'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Data Source</span>
-                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.dataSource || '—'}</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.dataSource || '-'}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-neutral-500 font-semibold uppercase block mb-0.5">Possession Time</span>
-                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.possessionTime || '—'}</span>
+                      <span className="text-sm text-neutral-300 font-medium">{selectedLeadForDetail.possessionTime || '-'}</span>
                     </div>
                   </div>
                 </div>
@@ -1778,7 +1777,7 @@ export default function Home() {
                     )}
                   </div>
                 )}
-                
+
                 {/* System Info */}
                 <div className="col-span-2 mt-2 flex justify-between items-center text-[10px] text-neutral-500 font-medium border-t border-neutral-800/60 pt-4">
                   <div>Added: {new Date(selectedLeadForDetail.createdAt).toLocaleString()}</div>

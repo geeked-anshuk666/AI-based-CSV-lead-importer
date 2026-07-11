@@ -1,6 +1,6 @@
-# FlowLead AI — CSV Lead Importer
+# FlowLead AI - CSV Lead Importer
 
-A production-grade tool that takes a CSV file of any shape or column structure and converts it into clean, deduplicated leads inside the GrowEasy CRM. An AI model reads the raw column headers and cell values, figures out what each column actually means, and maps everything to the CRM's target schema — no manual field mapping required.
+A production-grade tool that takes a CSV file of any shape or column structure and converts it into clean, deduplicated leads inside the GrowEasy CRM. An AI model reads the raw column headers and cell values, figures out what each column actually means, and maps everything to the CRM's target schema - no manual field mapping required.
 
 Built as a full-stack TypeScript application with Next.js on the frontend, Express on the backend, Prisma + PostgreSQL for persistence, and Google Gemini as the primary AI mapping engine.
 
@@ -34,7 +34,7 @@ Built as a full-stack TypeScript application with Next.js on the frontend, Expre
 | Frontend | https://flow-lead-ai.vercel.app/ |
 | Backend API | https://ai-based-csv-lead-importer-backend.onrender.com/api/health |
 
-The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The application handles this gracefully — see the cold start section below.
+The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The application handles this gracefully - see the cold start section below.
 
 ---
 
@@ -121,7 +121,7 @@ The AI Service tries Google Gemini 2.5 Flash first. If Gemini fails, it falls th
 
 ### Intelligent Upsert
 
-Before saving any batch of leads, the Lead Service queries the database for all emails and mobile numbers in that batch in a single round trip. It then decides for each record whether to create or update. Updates are additive — if the incoming row has a value for a field, it wins; if it is blank, the existing value is kept.
+Before saving any batch of leads, the Lead Service queries the database for all emails and mobile numbers in that batch in a single round trip. It then decides for each record whether to create or update. Updates are additive - if the incoming row has a value for a field, it wins; if it is blank, the existing value is kept.
 
 ---
 
@@ -129,7 +129,7 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 
 **Import pipeline**
 - Drag-and-drop or click-to-upload CSV files up to 100 MB
-- Supports any column naming convention — camelCase, snake_case, Title Case, mixed separators
+- Supports any column naming convention - camelCase, snake_case, Title Case, mixed separators
 - BOM stripping and CRLF normalization on ingest so Excel exports work cleanly
 - Header normalization to lowercase snake_case before AI sees the data
 - Early row filter: rows with neither an email nor a phone number are skipped before calling the AI
@@ -198,13 +198,13 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 | Frontend Hosting | Vercel |
 | Backend | Node.js 20, Express 4, TypeScript, Multer |
 | Backend Hosting | Render (free tier, `render.yaml`) |
-| AI — Primary | Google Gemini 2.5 Flash (direct API via `@google/generative-ai`) |
-| AI — Fallback 1 | `meta-llama/llama-3.3-70b-instruct:free` via OpenRouter |
-| AI — Fallback 2 | `meta-llama/llama-3.2-3b-instruct:free` via OpenRouter |
-| AI — Fallback 3 | `nousresearch/hermes-3-405b:free` via OpenRouter |
-| AI — Fallback 4 | `google/gemma-2-9b-it:free` via OpenRouter |
-| AI — Fallback 5 | `openrouter/auto` (OpenRouter picks best available) |
-| AI — Final Fallback | Local rule-based deterministic mapper |
+| AI - Primary | Google Gemini 2.5 Flash (direct API via `@google/generative-ai`) |
+| AI - Fallback 1 | `meta-llama/llama-3.3-70b-instruct:free` via OpenRouter |
+| AI - Fallback 2 | `meta-llama/llama-3.2-3b-instruct:free` via OpenRouter |
+| AI - Fallback 3 | `nousresearch/hermes-3-405b:free` via OpenRouter |
+| AI - Fallback 4 | `google/gemma-2-9b-it:free` via OpenRouter |
+| AI - Fallback 5 | `openrouter/auto` (OpenRouter picks best available) |
+| AI - Final Fallback | Local rule-based deterministic mapper |
 | ORM | Prisma 5 |
 | Database | PostgreSQL 15 hosted on Neon (serverless Postgres) |
 | Queue | Redis 7 Pub/Sub with in-memory EventEmitter fallback |
@@ -279,7 +279,7 @@ Indexed on: `email`, `mobile_without_country_code`, and the compound `(import_id
 
 - Node.js 20 or later
 - Docker and Docker Compose (for PostgreSQL and Redis)
-- A Google AI Studio API key — get one free at [aistudio.google.com](https://aistudio.google.com)
+- A Google AI Studio API key - get one free at [aistudio.google.com](https://aistudio.google.com)
 - Optionally, an OpenRouter API key for the fallback chain
 
 ### 1. Clone the repository
@@ -356,7 +356,7 @@ The frontend will be on port 3000, the backend on port 5000.
 
 ## Deployment
 
-### Backend — Render
+### Backend - Render
 
 The `render.yaml` file defines the `groweasy-backend` web service. Connect the repository on [render.com](https://render.com) and set these environment variables:
 
@@ -368,7 +368,7 @@ The `render.yaml` file defines the `groweasy-backend` web service. Connect the r
 
 Redis is not available on Render's free tier. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically.
 
-### Frontend — Vercel
+### Frontend - Vercel
 
 Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one environment variable:
 
@@ -376,7 +376,7 @@ Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one en
 |---|---|
 | `NEXT_PUBLIC_API_BASE` | Your Render backend URL + `/api` (e.g. `https://groweasy-backend.onrender.com/api`) |
 
-### Database — Neon
+### Database - Neon
 
 Create a free project on [neon.tech](https://neon.tech). Copy the connection string (pooled mode recommended) and set it as `DATABASE_URL` in your Render backend config. Run migrations once after deploying:
 
@@ -415,15 +415,15 @@ python split_test_data.py
 
 ## Edge Cases Handled
 
-- **BOM prefix on Excel exports** — Stripped before parsing so the first header is not corrupted.
-- **CRLF line endings** — Normalized to LF before the CSV parser sees the file.
-- **Mixed header formats** — camelCase, PascalCase, spaces, and hyphens are all normalized to snake_case.
-- **Invalid email/phone values** — Fields containing non-email text (e.g., `"Yes"`, `"No"`) in email columns are detected via regex and set to null; rows with neither a valid email nor phone are skipped entirely.
-- **Empty rows with no contact info** — Filtered out before AI is called, saving tokens.
-- **Double-confirm race condition** — A per-runId in-memory lock rejects concurrent confirm requests with a 409.
-- **Server crash mid-import** — On startup, any run stuck in PROCESSING is set to FAILED automatically.
-- **Stale PENDING runs** — Runs uploaded but never confirmed are deleted after 30 minutes.
-- **AI quota exhaustion** — Detected by error pattern matching; the system cascades through all fallback models before falling back to the local rule-based mapper.
-- **SSE drops on long imports** — Automatic fallback to HTTP polling every 2 seconds.
-- **Self-healing import stats** — On startup, processed and skipped counts for all completed runs are recomputed from actual lead counts so historical data stays accurate.
-- **Render free-tier cold start** — Detected by a 2.5-second timeout on the initial health ping; users see a graceful loading modal instead of a broken dashboard.
+- **BOM prefix on Excel exports** - Stripped before parsing so the first header is not corrupted.
+- **CRLF line endings** - Normalized to LF before the CSV parser sees the file.
+- **Mixed header formats** - camelCase, PascalCase, spaces, and hyphens are all normalized to snake_case.
+- **Invalid email/phone values** - Fields containing non-email text (e.g., `"Yes"`, `"No"`) in email columns are detected via regex and set to null; rows with neither a valid email nor phone are skipped entirely.
+- **Empty rows with no contact info** - Filtered out before AI is called, saving tokens.
+- **Double-confirm race condition** - A per-runId in-memory lock rejects concurrent confirm requests with a 409.
+- **Server crash mid-import** - On startup, any run stuck in PROCESSING is set to FAILED automatically.
+- **Stale PENDING runs** - Runs uploaded but never confirmed are deleted after 30 minutes.
+- **AI quota exhaustion** - Detected by error pattern matching; the system cascades through all fallback models before falling back to the local rule-based mapper.
+- **SSE drops on long imports** - Automatic fallback to HTTP polling every 2 seconds.
+- **Self-healing import stats** - On startup, processed and skipped counts for all completed runs are recomputed from actual lead counts so historical data stays accurate.
+- **Render free-tier cold start** - Detected by a 2.5-second timeout on the initial health ping; users see a graceful loading modal instead of a broken dashboard.
