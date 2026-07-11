@@ -9,8 +9,9 @@ const ALLOWED_DATA_SOURCES = ['leads_on_demand', 'meridian_tower', 'eden_park', 
 
 // Cascade of fallback models on OpenRouter
 const OPENROUTER_MODELS = [
-  'meta-llama/llama-3.1-8b-instruct:free',
-  'qwen/qwen-2-7b-instruct:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'meta-llama/llama-3.2-3b-instruct:free',
+  'nousresearch/hermes-3-405b:free',
   'google/gemma-2-9b-it:free',
   'openrouter/auto'
 ];
