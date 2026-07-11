@@ -9,24 +9,22 @@ import { prisma } from './config/db.js';
 const app = express();
 app.set('trust proxy', 1);
 
-// Secure file size upload limits to protect server memory (100MB to support massive 100K+ load tests)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 }
 });
 
-// Configure API Rate Limiting to prevent DoS attacks / resource exhaustion
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests from this IP, please try again later.' }
 });
 
 const uploadLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 upload/confirm requests per window
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Upload limit exceeded. Please wait 15 minutes.' }
@@ -37,12 +35,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/', apiLimiter);
 
-// Clean up any dangling runs stuck in PROCESSING status on server boot (Edge Case 3)
 LeadService.cleanupStuckRuns();
-// Sync stats of completed runs to match actual leads in DB (self-healing)
 LeadService.syncExistingImportStats();
 
-// Routes definition
 app.get('/api/health', async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;

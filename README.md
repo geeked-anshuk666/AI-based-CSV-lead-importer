@@ -1,44 +1,29 @@
-# GrowEasy AI CSV Lead Importer
+# FlowLead AI — CSV Lead Importer
 
-A production-grade tool that takes a CSV file of any shape or column structure and converts it into clean, deduplicated leads inside the GrowEasy CRM. An AI model reads the raw column headers and cell values, figures out what each column actually means, and maps everything to the CRM's target schema - no manual field mapping required.
+A production-grade tool that takes a CSV file of any shape or column structure and converts it into clean, deduplicated leads inside the GrowEasy CRM. An AI model reads the raw column headers and cell values, figures out what each column actually means, and maps everything to the CRM's target schema — no manual field mapping required.
 
 Built as a full-stack TypeScript application with Next.js on the frontend, Express on the backend, Prisma + PostgreSQL for persistence, and Google Gemini as the primary AI mapping engine.
 
 ---
 
+## Table of Contents
 
-# Table of Contents
-
-* [GrowEasy AI CSV Lead Importer](#groweasy-ai-csv-lead-importer)
-* [Demo](#demo)
-* [How it works](#how-it-works)
-* [Architecture](#architecture)
-    * [Cold Start Handling](#cold-start-handling)
-    * [Upload + Confirm Flow](#upload--confirm-flow)
-    * [Queue and Worker](#queue-and-worker)
-    * [AI Mapping and Fallback Chain](#ai-mapping-and-fallback-chain)
-    * [Intelligent Upsert](#intelligent-upsert)
-* [Features](#features)
-* [Tech Stack](#tech-stack)
-* [Database Schema](#database-schema)
-    * [ImportRun](#importrun)
-    * [Lead](#lead)
-* [API Reference](#api-reference)
-* [Local Setup](#local-setup)
-    * [Prerequisites](#prerequisites)
-    * [1. Clone the repository](#1-clone-the-repository)
-    * [2. Configure the backend environment](#2-configure-the-backend-environment)
-    * [3. Start the database and Redis](#3-start-the-database-and-redis)
-    * [4. Install dependencies and run migrations](#4-install-dependencies-and-run-migrations)
-    * [5. Build and start the backend](#5-build-and-start-the-backend)
-    * [6. Start the frontend](#6-start-the-frontend)
-    * [Running everything with Docker Compose](#running-everything-with-docker-compose)
-* [Deployment](#deployment)
-    * [Backend - Render](#backend---render)
-    * [Frontend - Vercel](#frontend---vercel)
-    * [Database - Neon](#database---neon)
-* [Sample Data](#sample-data)
-* [Edge Cases Handled](#edge-cases-handled)
+- [Demo](#demo)
+- [How it works](#how-it-works)
+- [Architecture](#architecture)
+  - [Cold Start Handling](#cold-start-handling)
+  - [Upload + Confirm Flow](#upload--confirm-flow)
+  - [Queue and Worker](#queue-and-worker)
+  - [AI Mapping and Fallback Chain](#ai-mapping-and-fallback-chain)
+  - [Intelligent Upsert](#intelligent-upsert)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Database Schema](#database-schema)
+- [API Reference](#api-reference)
+- [Local Setup](#local-setup)
+- [Deployment](#deployment)
+- [Sample Data](#sample-data)
+- [Edge Cases Handled](#edge-cases-handled)
 
 ---
 
@@ -49,13 +34,13 @@ Built as a full-stack TypeScript application with Next.js on the frontend, Expre
 | Frontend | https://flow-lead-ai.vercel.app/ |
 | Backend API | https://ai-based-csv-lead-importer-backend.onrender.com/api/health |
 
-The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The application handles this gracefully - see the cold start section below.
+The backend runs on Render's free tier and spins down after 15 minutes of inactivity. The application handles this gracefully — see the cold start section below.
 
 ---
 
 ## How it works
 
-You drop a CSV file into the upload area. The backend parses it immediately, returns a row count and a preview of the first 50 records. You review that preview, optionally remove individual rows you do not want, then click Import. That triggers the backend to send the confirmed rows through an AI pipeline in batches of 50. The AI maps each batch to the CRM schema, and the results are saved to the database in real time. Progress streams back to the browser over a Server-Sent Events connection so you see a live percentage counter.
+You drop a CSV file into the upload area. The backend parses it immediately, returns a row count and a preview of the first 10 records. You review that preview, optionally remove individual rows you do not want, then click Import. That triggers the backend to send the confirmed rows through an AI pipeline in batches of 50. The AI maps each batch to the CRM schema, and the results are saved to the database in real time. Progress streams back to the browser over a Server-Sent Events connection so you see a live percentage counter.
 
 If a lead already exists in the database (matched by email or mobile number), it gets updated rather than duplicated. Existing fields are preserved when the incoming row has no value for them. New records are created for everything else.
 
@@ -76,7 +61,7 @@ graph TB
         CTRL["Import Controller"]
         CSV["CSV Service\n(Parse + Sanitize + Normalize)"]
         AI["AI Service\n(Gemini 2.5 Flash)"]
-        OR["OpenRouter Fallback\ngemini-free / llama-3 / mistral-7b / auto"]
+        OR["OpenRouter Fallback\nLlama 3 / Gemma 2 / auto"]
         QUEUE["Queue Service\n(Redis Pub/Sub or In-Memory)"]
         WORKER["Worker\n(Batch Processor)"]
         LEAD["Lead Service\n(Intelligent Upsert)"]
@@ -99,6 +84,7 @@ graph TB
     FE -->|"GET /api/imports/:id/progress (SSE)"| SSE
     FE -->|"GET /api/imports/history"| API
     FE -->|"DELETE /api/leads/:id"| API
+    FE -->|"GET /api/leads"| API
 
     API --> CTRL
     CTRL --> CSV
@@ -119,23 +105,23 @@ graph TB
 
 ### Cold Start Handling
 
-When the Render free-tier backend is asleep, the first request can take 50–120 seconds. The frontend detects this before loading anything else. On page load, it pings `/api/health` with a 2.5-second timeout. If the server responds within that window, the dashboard loads immediately and the user sees nothing unusual. If the request times out or fails, a full-screen modal appears explaining that the server is waking up, showing a live progress bar (simulated at 1% per 700ms) and pinging `/api/health` every 3 seconds in the background. Once the health check returns 200, the modal switches to a success state and a "Let's Start" button appears. Clicking it loads the dashboard and fetches all data. The `GET /api/health` endpoint runs a `SELECT 1` via Prisma to verify the Neon database is also reachable, not just the Express process.
+When the Render free-tier backend is asleep, the first request can take 50–120 seconds. The frontend detects this before loading anything else. On page load, it pings `/api/health` with a 2.5-second timeout. If the server responds within that window, the dashboard loads immediately. If not, a full-screen modal appears with a live progress bar and pings `/api/health` every 3 seconds. Once the health check returns 200, the modal switches to a success state and the user clicks "Let's Start" to load the dashboard.
 
 ### Upload + Confirm Flow
 
-The upload step and the processing step are deliberately separated. When you upload a file, the backend parses it, saves a PENDING record to the database, holds the valid rows in memory, and sends back a preview. Nothing touches the AI yet. Only after you confirm does the backend publish the rows to the queue, and the worker picks them up for AI processing. This means you can inspect what is about to be imported and remove bad rows before any credits are spent.
+The upload step and the processing step are deliberately separated. When you upload a file, the backend parses it, saves a PENDING record to the database, holds the valid rows in memory, and sends back a preview. Nothing touches the AI yet. Only after you confirm does the backend publish the rows to the queue.
 
 ### Queue and Worker
 
-In local development, the queue falls back to Node.js `EventEmitter` when no Redis URL is provided, so nothing external is required. When `REDIS_URL` is set, the queue uses Redis Pub/Sub. The worker subscribes to the `csv_imports` channel and processes each import run in configurable batches (default 50 rows per batch). Progress events are published to a per-run channel (`import_progress:<runId>`) and the SSE endpoint forwards them to the browser.
+In local development, the queue falls back to Node.js `EventEmitter` when no Redis URL is provided. When `REDIS_URL` is set, the queue uses Redis Pub/Sub. The worker subscribes to the `csv_imports` channel and processes each import run in configurable batches (default 50 rows per batch). Progress events are published to a per-run channel (`import_progress:<runId>`) and the SSE endpoint forwards them to the browser.
 
 ### AI Mapping and Fallback Chain
 
-The AI Service tries Google Gemini 2.5 Flash first. If Gemini fails for any reason (quota, network error, or missing key), it falls through a cascade of OpenRouter-hosted models: Gemini 2.5 Flash free tier, Llama 3 8B Instruct, Mistral 7B Instruct, and finally OpenRouter's automatic routing. If everything is exhausted, the run is marked FAILED immediately rather than silently skipping rows.
+The AI Service tries Google Gemini 2.5 Flash first. If Gemini fails, it falls through a cascade of OpenRouter-hosted models: Llama 3.3 70B, Llama 3.2 3B, Hermes 3 405B, Gemma 2 9B, and finally OpenRouter's automatic routing. If all models are exhausted, a local rule-based mapper takes over and the run still completes successfully.
 
 ### Intelligent Upsert
 
-Before saving any batch of leads, the Lead Service queries the database for all emails and mobile numbers in that batch in a single round trip. It then decides for each record whether to create or update. Updates are additive - if the incoming row has a value for a field, it wins; if it is blank, the existing value is kept. The import run counter of the old run is decremented when a lead is reassociated to a new import.
+Before saving any batch of leads, the Lead Service queries the database for all emails and mobile numbers in that batch in a single round trip. It then decides for each record whether to create or update. Updates are additive — if the incoming row has a value for a field, it wins; if it is blank, the existing value is kept.
 
 ---
 
@@ -143,20 +129,20 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 
 **Import pipeline**
 - Drag-and-drop or click-to-upload CSV files up to 100 MB
-- Supports any column naming convention - camelCase, snake_case, Title Case, mixed separators
+- Supports any column naming convention — camelCase, snake_case, Title Case, mixed separators
 - BOM stripping and CRLF normalization on ingest so Excel exports work cleanly
 - Header normalization to lowercase snake_case before AI sees the data
-- Early row filter: rows with neither an email nor a phone number are skipped before calling the AI, saving tokens
+- Early row filter: rows with neither an email nor a phone number are skipped before calling the AI
 - Configurable row cap (100,000 rows per import) with clear error messaging if exceeded
-- Preview of the first 50 rows before confirmation, with horizontal and vertical scrolling and sticky headers
+- Preview of the first 10 rows before confirmation, with horizontal and vertical scrolling and sticky headers
 - Row-level removal from the preview before triggering the actual import
 - Concurrency lock on the confirm endpoint prevents double-submitting the same run
 
 **AI processing**
 - Per-batch AI mapping with a structured prompt that specifies the exact CRM schema
-- AI is instructed to skip records with no valid email or phone, map CRM status and data source to allowed enum values, and roll extra phone numbers and emails into the notes field
-- Batch size adapts dynamically for small files so progress animations are visible and not instantaneous
-- Rate limit detection: if the AI returns a 429 or exhaustion error, the entire run is marked FAILED immediately and the reason is surfaced in the frontend
+- AI is instructed to skip records with no valid email or phone, map CRM status and data source to allowed enum values
+- Batch size adapts dynamically for small files so progress animations are visible
+- Rate limit detection: if the AI returns a 429, the run falls back to the next model in the chain
 
 **Deduplication**
 - Leads are matched by email (case-insensitive) and by mobile number
@@ -165,38 +151,38 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 
 **Real-time progress**
 - Server-Sent Events stream live progress percentage, processed count, and skipped count
-- Automatic fallback to HTTP polling every 2 seconds if SSE drops (proxy timeout, network interruption)
+- Automatic fallback to HTTP polling every 2 seconds if SSE drops
 - FAILED status surfaces the error message directly in the UI
 
 **Cold start detection and graceful wake-up**
-- On page load, the frontend pings `/api/health` with a 2.5-second timeout before loading any data
-- If the backend responds in time, the dashboard loads normally with no interruption
-- If the server is asleep (Render free tier), a full-screen modal appears showing a live progress bar and the message "Waking Up Services"
-- The frontend polls `/api/health` every 3 seconds until it gets a 200 response
-- Once the server is up, the modal transitions to a success state with a "Let's Start" button
-- Clicking the button loads the full dashboard and triggers all data fetches
-- The health endpoint verifies both the Express process and the Neon database connection before reporting ready
+- Detects Render free-tier spin-down with a 2.5-second timeout on the initial health ping
+- Full-screen modal with animated progress bar while the server wakes up
+- Dashboard loads automatically once the backend is ready
 
-**Import history and database view**
-- Two views: active database leads and import history log
-- History shows each import run with status, file name, record counts, and a View Details panel
-- Lead table supports real-time search across name, email, company, and mobile number
-- Status filter dropdown to narrow leads by CRM status
+**Lead Dashboard**
+- Paginated leads table with server-side search and status filtering
+- Displays total unique leads count prominently in the header
+- Shows how many leads are on the current page
+- Smooth vertical and horizontal scrolling with sticky headers
+- Hover tooltips on every cell to preview full content
+- Click any row to open a full Lead Details modal card with all 15+ CRM fields
 - Leads sorted by most recently created or updated, so fresh upserts float to the top
 
 **Deletion**
-- Individual lead deletion from the database with a confirmation dialog
+- Individual lead deletion with a confirmation dialog
 - Bulk lead deletion with checkbox selection and a single confirmation
 - When the last lead in an import run is deleted, the run record is also cleaned up automatically
-- Preview row removal before import with the same confirmation dialog pattern
+
+**Import history**
+- History log of every import run with status, file name, and record counts
+- Click any history entry to open a View Details panel with a table preview of up to 10 imported leads
 
 **Self-healing on startup**
-- Any import run stuck in PROCESSING status (from a crash or restart) is immediately marked FAILED on boot
-- Historical completed runs have their processed and skipped counts resynced against actual database counts so the history log is always accurate
+- Any import run stuck in PROCESSING status (from a crash or restart) is immediately marked FAILED
+- Historical completed runs have their processed and skipped counts resynced against actual database counts
 
 **Stale run cleanup**
 - PENDING runs that were never confirmed are automatically deleted after 30 minutes
-- Cleanup runs every 10 minutes in the background
 
 **Rate limiting**
 - General API: 100 requests per IP per 15 minutes
@@ -212,11 +198,13 @@ Before saving any batch of leads, the Lead Service queries the database for all 
 | Frontend Hosting | Vercel |
 | Backend | Node.js 20, Express 4, TypeScript, Multer |
 | Backend Hosting | Render (free tier, `render.yaml`) |
-| AI - Primary | Google Gemini 2.5 Flash (direct API via `@google/generative-ai`) |
-| AI - Fallback 1 | `google/gemini-2.5-flash:free` via OpenRouter |
-| AI - Fallback 2 | `meta-llama/llama-3-8b-instruct:free` via OpenRouter |
-| AI - Fallback 3 | `mistralai/mistral-7b-instruct:free` via OpenRouter |
-| AI - Fallback 4 | `openrouter/auto` (OpenRouter picks best available) |
+| AI — Primary | Google Gemini 2.5 Flash (direct API via `@google/generative-ai`) |
+| AI — Fallback 1 | `meta-llama/llama-3.3-70b-instruct:free` via OpenRouter |
+| AI — Fallback 2 | `meta-llama/llama-3.2-3b-instruct:free` via OpenRouter |
+| AI — Fallback 3 | `nousresearch/hermes-3-405b:free` via OpenRouter |
+| AI — Fallback 4 | `google/gemma-2-9b-it:free` via OpenRouter |
+| AI — Fallback 5 | `openrouter/auto` (OpenRouter picks best available) |
+| AI — Final Fallback | Local rule-based deterministic mapper |
 | ORM | Prisma 5 |
 | Database | PostgreSQL 15 hosted on Neon (serverless Postgres) |
 | Queue | Redis 7 Pub/Sub with in-memory EventEmitter fallback |
@@ -274,12 +262,13 @@ Indexed on: `email`, `mobile_without_country_code`, and the compound `(import_id
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/health` | Server and database health check. Returns `{ status: "ok" }` when both Express and Neon are reachable. Used by the frontend cold-start detection. |
+| GET | `/api/health` | Server and database health check. Returns `{ status: "ok" }` when both Express and Neon are reachable. |
 | POST | `/api/imports/upload` | Upload CSV. Returns runId + preview rows. |
 | POST | `/api/imports/:runId/confirm` | Confirm and queue rows for AI processing. |
 | GET | `/api/imports/:runId/progress` | SSE stream of live progress events. |
 | GET | `/api/imports/history` | List all import runs. |
 | GET | `/api/imports/:id` | Get run details including all associated leads. |
+| GET | `/api/leads` | Get paginated leads with optional search, status filter, and pagination. |
 | DELETE | `/api/leads/:id` | Delete a single lead. |
 
 ---
@@ -290,14 +279,14 @@ Indexed on: `email`, `mobile_without_country_code`, and the compound `(import_id
 
 - Node.js 20 or later
 - Docker and Docker Compose (for PostgreSQL and Redis)
-- A Google AI Studio API key - get one free at [aistudio.google.com](https://aistudio.google.com)
+- A Google AI Studio API key — get one free at [aistudio.google.com](https://aistudio.google.com)
 - Optionally, an OpenRouter API key for the fallback chain
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/geeked-anshuk666/AI-based-CSV-lead-importer.git
-cd AI-based-CSV-lead-importer
+git clone https://github.com/geeked-anshuk666/FlowLead-AI.git
+cd FlowLead-AI
 ```
 
 ### 2. Configure the backend environment
@@ -316,7 +305,7 @@ GEMINI_API_KEY="your_google_ai_studio_key_here"
 OPENROUTER_API_KEY="your_openrouter_key_here"
 ```
 
-`REDIS_URL` is optional. If omitted, the queue falls back to in-memory mode and everything still works - you just lose the ability to run the worker as a separate process.
+`REDIS_URL` is optional. If omitted, the queue falls back to in-memory mode.
 
 ### 3. Start the database and Redis
 
@@ -357,10 +346,7 @@ The frontend is available at `http://localhost:3000`.
 
 ### Running everything with Docker Compose
 
-If you want to spin up all four services (database, Redis, backend, worker, frontend) together:
-
 ```bash
-# Copy your keys into a .env file at the root or export them as shell variables first
 GEMINI_API_KEY=your_key OPENROUTER_API_KEY=your_key docker-compose up --build
 ```
 
@@ -370,7 +356,7 @@ The frontend will be on port 3000, the backend on port 5000.
 
 ## Deployment
 
-### Backend - Render
+### Backend — Render
 
 The `render.yaml` file defines the `groweasy-backend` web service. Connect the repository on [render.com](https://render.com) and set these environment variables:
 
@@ -380,11 +366,9 @@ The `render.yaml` file defines the `groweasy-backend` web service. Connect the r
 | `GEMINI_API_KEY` | Your Google AI Studio key |
 | `OPENROUTER_API_KEY` | Your OpenRouter key (optional but recommended) |
 
-Redis is not available on Render's free tier. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically, so nothing breaks.
+Redis is not available on Render's free tier. The queue service detects the absence of `REDIS_URL` and falls back to in-memory mode automatically.
 
-**Free tier cold start:** Render free instances spin down after 15 minutes of inactivity. The first request after a dormant period can take 50–120 seconds while the container starts. The frontend handles this automatically with a graceful wake-up modal - see the cold start section above. Upgrading to a paid Render instance eliminates the spin-down entirely.
-
-### Frontend - Vercel
+### Frontend — Vercel
 
 Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one environment variable:
 
@@ -392,9 +376,7 @@ Deploy the `frontend/` directory to [vercel.com](https://vercel.com). Set one en
 |---|---|
 | `NEXT_PUBLIC_API_BASE` | Your Render backend URL + `/api` (e.g. `https://groweasy-backend.onrender.com/api`) |
 
-The frontend does not connect directly to the database. All data fetches go through the Express backend API.
-
-### Database - Neon
+### Database — Neon
 
 Create a free project on [neon.tech](https://neon.tech). Copy the connection string (pooled mode recommended) and set it as `DATABASE_URL` in your Render backend config. Run migrations once after deploying:
 
@@ -415,15 +397,15 @@ The `Sample Data/` directory contains files you can use for testing:
 
 A 100,000-record synthetic dataset (`synthetic_leads_100k.csv`, ~70 MB) can be generated locally for load testing. It is excluded from the repository due to size.
 
-To regenerate it:
+To generate it:
 
 ```bash
 python generate_load_test_data.py
 ```
 
-The script creates 80,000 unique leads and 20,000 duplicates (drawn randomly from the unique set) to test the upsert and deduplication logic at scale. The file lands in the project root.
+The script creates 80,000 unique leads and 20,000 duplicates to test the upsert and deduplication logic at scale.
 
-To split it into four chunks that fit within the 100 MB upload limit individually:
+To split it into smaller chunks:
 
 ```bash
 python split_test_data.py
@@ -433,15 +415,15 @@ python split_test_data.py
 
 ## Edge Cases Handled
 
-These are not theoretical - each one was triggered during development and addressed:
-
-- **BOM prefix on Excel exports**: Stripped before parsing so the first header is not corrupted.
-- **CRLF line endings**: Normalized to LF before the CSV parser sees the file.
-- **Empty rows with no contact info**: Filtered out before AI is called, saving tokens on garbage data.
-- **Double-confirm race condition**: A per-runId in-memory lock rejects concurrent confirm requests for the same run with a 409.
-- **Server crash mid-import**: On startup, any run stuck in PROCESSING is set to FAILED automatically.
-- **Stale PENDING runs**: Runs that were uploaded but never confirmed are deleted after 30 minutes.
-- **AI quota exhaustion**: Detected by error message pattern matching. The run is immediately marked FAILED and remaining rows are counted as skipped rather than silently lost.
-- **SSE drops on long imports**: Automatic fallback to HTTP polling every 2 seconds keeps the frontend tracking progress even through proxy timeouts or flaky connections.
-- **Self-healing import stats**: On startup, processed and skipped counts for all completed runs are recomputed from actual lead counts in the database, so historical data is always consistent even after deletions or crashes.
-- **Render free-tier cold start**: Detected by a 2.5-second timeout on the initial `/api/health` ping. Users see a graceful loading modal instead of a broken or unresponsive dashboard.
+- **BOM prefix on Excel exports** — Stripped before parsing so the first header is not corrupted.
+- **CRLF line endings** — Normalized to LF before the CSV parser sees the file.
+- **Mixed header formats** — camelCase, PascalCase, spaces, and hyphens are all normalized to snake_case.
+- **Invalid email/phone values** — Fields containing non-email text (e.g., `"Yes"`, `"No"`) in email columns are detected via regex and set to null; rows with neither a valid email nor phone are skipped entirely.
+- **Empty rows with no contact info** — Filtered out before AI is called, saving tokens.
+- **Double-confirm race condition** — A per-runId in-memory lock rejects concurrent confirm requests with a 409.
+- **Server crash mid-import** — On startup, any run stuck in PROCESSING is set to FAILED automatically.
+- **Stale PENDING runs** — Runs uploaded but never confirmed are deleted after 30 minutes.
+- **AI quota exhaustion** — Detected by error pattern matching; the system cascades through all fallback models before falling back to the local rule-based mapper.
+- **SSE drops on long imports** — Automatic fallback to HTTP polling every 2 seconds.
+- **Self-healing import stats** — On startup, processed and skipped counts for all completed runs are recomputed from actual lead counts so historical data stays accurate.
+- **Render free-tier cold start** — Detected by a 2.5-second timeout on the initial health ping; users see a graceful loading modal instead of a broken dashboard.

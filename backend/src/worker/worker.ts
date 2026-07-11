@@ -7,9 +7,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Each AI call handles up to BATCH_SIZE rows.
-// For the Gemini free tier, we set BATCH_SIZE to 50 and process sequentially (PARALLEL_BATCHES = 1)
-// with a 5-second delay to completely avoid the 250,000 tokens-per-minute input quota limit.
 const BATCH_SIZE = 50;
 const PARALLEL_BATCHES = 1;
 
@@ -33,30 +30,25 @@ async function startWorker() {
       let aiExhausted = false;
       let preferredModel: string | undefined = undefined;
 
-      // For very small files use smaller batches so progress feels responsive.
-      // For larger files use full BATCH_SIZE to minimise the number of AI round-trips.
       const effectiveBatchSize = rows.length < 30
         ? Math.max(1, Math.ceil(rows.length / 5))
         : BATCH_SIZE;
 
-      // Build the list of all batch start-indices upfront
       const batchStarts: number[] = [];
       for (let i = 0; i < rows.length; i += effectiveBatchSize) {
         batchStarts.push(i);
       }
 
       const totalGroups = Math.ceil(batchStarts.length / PARALLEL_BATCHES);
-      const targetGroupDurationMs = 5000; // 5 seconds target per call (~12 RPM safety)
+      const targetGroupDurationMs = 5000;
 
-      // Process PARALLEL_BATCHES batches at a time.
       for (let g = 0; g < batchStarts.length; g += PARALLEL_BATCHES) {
         if (aiExhausted) break;
 
         const groupStartTime = Date.now();
         const currentGroupIndex = g / PARALLEL_BATCHES;
         const remainingGroups = totalGroups - (currentGroupIndex + 1);
-        
-        // If local mapper is active, there are no API calls, so remaining duration is virtually 0
+
         const estimatedTimeRemainingSeconds = preferredModel === 'GrowEasy Local Rule-Based Mapper'
           ? 0
           : remainingGroups * (targetGroupDurationMs / 1000);
@@ -66,11 +58,10 @@ async function startWorker() {
         const groupResults = await Promise.allSettled(
           group.map(async (startIdx) => {
             const batch = rows.slice(startIdx, startIdx + effectiveBatchSize);
-            
-            // Call AI with a retry loop on 429 / Rate Limit
+
             let mappedLeads: any[] = [];
             let retriesLeft = 3;
-            
+
             while (retriesLeft >= 0) {
               try {
                 const res = await AiService.mapLeadsBatch(
@@ -89,18 +80,18 @@ async function startWorker() {
                   preferredModel
                 );
                 mappedLeads = res.leads;
-                preferredModel = res.modelUsed; // Make model sticky for subsequent batches
-                break; // Success!
+                preferredModel = res.modelUsed;
+                break;
               } catch (err: any) {
                 const errMsg = err?.message || String(err);
                 const isRateLimit = errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('rate limit');
-                
+
                 if (isRateLimit && retriesLeft > 0) {
-                  console.warn(`Rate limit hit during batch mapping. Retrying in 8s... (${retriesLeft} retries left)`);
+                  console.warn(`Rate limit hit. Retrying in 8s... (${retriesLeft} retries left)`);
                   retriesLeft--;
                   await sleep(8000);
                 } else {
-                  throw err; // Out of retries or non-rate-limit error
+                  throw err;
                 }
               }
             }
@@ -112,7 +103,6 @@ async function startWorker() {
           })
         );
 
-        // Aggregate results from this parallel group
         let groupProcessed = 0;
         let groupSkipped = 0;
 
@@ -122,11 +112,9 @@ async function startWorker() {
             groupProcessed += mappedLeads.length;
             groupSkipped += batch.length - mappedLeads.length;
           } else {
-            // Rejected batch
             const errMsg = result.reason?.message || String(result.reason);
             console.error(`Batch in group ${g} failed:`, errMsg);
 
-            // EC10: Detect AI quota/key exhaustion — fail the entire run
             const isAiExhaustion =
               errMsg.includes('All AI Mapping services exhausted') ||
               errMsg.includes('quota') ||
@@ -135,7 +123,7 @@ async function startWorker() {
 
             if (isAiExhaustion) {
               aiExhausted = true;
-              console.error(`[EC10] AI key quota exhausted for run ${runId}. Marking as FAILED.`);
+              console.error(`AI quota exhausted for run ${runId}. Marking as FAILED.`);
 
               const remainingRows = rows.length - (g * effectiveBatchSize);
               await prisma.importRun.update({
@@ -156,10 +144,9 @@ async function startWorker() {
                   error: 'AI mapping service quota exhausted. Check your API key limits and try again.'
                 })
               );
-              return; // Exit the subscriber handler
+              return;
             }
 
-            // Non-quota batch error: count all rows in the failed batch as skipped
             const failedBatchIdx = group[groupResults.indexOf(result)];
             const failedBatch = rows.slice(failedBatchIdx, failedBatchIdx + effectiveBatchSize);
             groupSkipped += failedBatch.length;
@@ -169,10 +156,8 @@ async function startWorker() {
         processedCount += groupProcessed;
         totalSkipped += groupSkipped;
 
-        // One DB write to update counts for the whole parallel group
         await LeadService.incrementImportCounts(runId, groupProcessed, groupSkipped);
 
-        // Progress = rows completed so far / total rows
         const completedRows = Math.min(
           (g + group.length) * effectiveBatchSize,
           rows.length
@@ -190,17 +175,15 @@ async function startWorker() {
           })
         );
 
-        // Throttling safety: only sleep if we aren't using the local rule-based mapper
         const groupDuration = Date.now() - groupStartTime;
         const targetDuration = preferredModel === 'GrowEasy Local Rule-Based Mapper' ? 0 : targetGroupDurationMs;
         if (groupDuration < targetDuration && g + PARALLEL_BATCHES < batchStarts.length) {
           const sleepDuration = targetDuration - groupDuration;
-          console.log(`Group completed quickly (${Math.round(groupDuration/1000)}s). Throttling for ${Math.round(sleepDuration/1000)}s to respect rate limits...`);
+          console.log(`Group done in ${Math.round(groupDuration/1000)}s. Throttling ${Math.round(sleepDuration/1000)}s.`);
           await sleep(sleepDuration);
         }
       }
 
-      // Only mark as COMPLETED if AI was not exhausted mid-run
       if (!aiExhausted) {
         await LeadService.updateImportRunStatus(runId, 'COMPLETED');
         await QueueService.publish(

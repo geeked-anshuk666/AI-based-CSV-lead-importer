@@ -32,11 +32,9 @@ export class LeadService {
   }
 
   public static async saveLeadsBatch(importId: string, leads: any[]) {
-    // 1. Gather all emails and mobile numbers to query in one round-trip
     const emails = leads.map(l => l.email).filter(Boolean) as string[];
     const phones = leads.map(l => l.mobile_without_country_code).filter(Boolean) as string[];
 
-    // 2. Fetch all existing leads that match any email or phone in this batch
     const existingLeads = await prisma.lead.findMany({
       where: {
         OR: [
@@ -46,16 +44,13 @@ export class LeadService {
       }
     });
 
-    // Build a fast lookup map: email → existing lead, phone → existing lead
     const byEmail = new Map(existingLeads.filter(l => l.email).map(l => [l.email!.toLowerCase(), l]));
     const byPhone = new Map(existingLeads.filter(l => l.mobileWithoutCountryCode).map(l => [l.mobileWithoutCountryCode!, l]));
 
     const toCreate: Prisma.LeadCreateManyInput[] = [];
-    // Updates must remain individual due to field-level merging logic
     const updatePromises: Promise<any>[] = [];
 
     for (const lead of leads) {
-      // Find a matching existing record (email takes priority over phone)
       const matched =
         (lead.email && byEmail.get(lead.email.toLowerCase())) ||
         (lead.mobile_without_country_code && byPhone.get(lead.mobile_without_country_code)) ||
@@ -80,7 +75,6 @@ export class LeadService {
       };
 
       if (matched) {
-        // Queue update (individual — needs field-level merge & old-run decrement)
         const oldImportId = matched.importId;
         updatePromises.push(
           prisma.lead.update({
@@ -103,7 +97,6 @@ export class LeadService {
           })
         );
       } else {
-        // Accumulate new leads for a single bulk insert
         toCreate.push({
           ...leadData,
           createdAt: lead.created_at ? new Date(lead.created_at) : new Date()
@@ -111,12 +104,10 @@ export class LeadService {
       }
     }
 
-    // 3. Bulk-insert all new leads in one DB round-trip
     if (toCreate.length > 0) {
       await prisma.lead.createMany({ data: toCreate, skipDuplicates: true });
     }
 
-    // 4. Run all updates concurrently (typically a small fraction of the batch)
     if (updatePromises.length > 0) {
       await Promise.allSettled(updatePromises);
     }
@@ -151,7 +142,6 @@ export class LeadService {
       });
       if (parentRun) {
         if (parentRun.leads.length <= 1) {
-          // Parent run has only 1 lead left (this one) - delete the run which cascades to the lead
           await prisma.importRun.delete({
             where: { id: lead.importId }
           });
@@ -178,18 +168,13 @@ export class LeadService {
         data: { status: 'FAILED' }
       });
       if (result.count > 0) {
-        console.log(`[Startup Cleanup] Marked ${result.count} stuck PROCESSING runs as FAILED.`);
+        console.log(`[Startup] Marked ${result.count} stuck PROCESSING runs as FAILED.`);
       }
     } catch (err) {
-      console.error('[Startup Cleanup] Failed to clean stuck runs:', err);
+      console.error('[Startup] Failed to clean stuck runs:', err);
     }
   }
 
-  /**
-   * Self-healing method: Iterates through all historical completed import runs,
-   * counts the actual leads stored in the DB, and fixes processed/skipped counts
-   * so they are 100% accurate.
-   */
   public static async syncExistingImportStats() {
     try {
       const completedRuns = await prisma.importRun.findMany({
@@ -219,11 +204,10 @@ export class LeadService {
       }
 
       if (updatedCount > 0) {
-        console.log(`[Startup Self-Healing] Synced stats for ${updatedCount} historical import runs.`);
+        console.log(`[Startup] Synced stats for ${updatedCount} historical import runs.`);
       }
     } catch (err) {
-      console.error('[Startup Self-Healing] Failed to sync historical run stats:', err);
+      console.error('[Startup] Failed to sync historical run stats:', err);
     }
   }
 }
-

@@ -3,11 +3,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Allowed CRM Statuses & Data Sources
 const ALLOWED_CRM_STATUSES = ['GOOD_LEAD_FOLLOW_UP', 'DID_NOT_CONNECT', 'BAD_LEAD', 'SALE_DONE'];
 const ALLOWED_DATA_SOURCES = ['leads_on_demand', 'meridian_tower', 'eden_park', 'varah_swamy', 'sarjapur_plots'];
 
-// Cascade of fallback models on OpenRouter
 const OPENROUTER_MODELS = [
   'meta-llama/llama-3.3-70b-instruct:free',
   'meta-llama/llama-3.2-3b-instruct:free',
@@ -25,7 +23,6 @@ export class AiService {
     onModelAttempt?: (modelName: string, status: 'attempt' | 'success' | 'failure', errorMsg?: string) => void,
     preferredModel?: string
   ): Promise<{ leads: any[]; modelUsed: string }> {
-    // Stick to local mapper immediately if previous batch triggered it
     const localModelName = 'GrowEasy Local Rule-Based Mapper';
     if (preferredModel === localModelName) {
       if (onModelAttempt) onModelAttempt(localModelName, 'attempt');
@@ -36,7 +33,6 @@ export class AiService {
 
     const prompt = this.buildPrompt(rawRows);
 
-    // Try Google Gemini directly first
     if (this.geminiKey && (!preferredModel || preferredModel === 'google/gemini-2.5-flash')) {
       const modelName = 'google/gemini-2.5-flash';
       if (onModelAttempt) onModelAttempt(modelName, 'attempt');
@@ -52,9 +48,7 @@ export class AiService {
       }
     }
 
-    // Fallback to OpenRouter cascading model list
     if (this.openrouterKey) {
-      // Find the slice of models starting from preferredModel if set (to avoid repeating known failed models)
       let modelsToTry = OPENROUTER_MODELS;
       if (preferredModel && OPENROUTER_MODELS.includes(preferredModel)) {
         const idx = OPENROUTER_MODELS.indexOf(preferredModel);
@@ -73,14 +67,12 @@ export class AiService {
           console.warn(`OpenRouter model ${model} failed. Trying next fallback...`, errMsg);
           if (onModelAttempt) onModelAttempt(model, 'failure', errMsg);
           if (errMsg.includes('429')) {
-            console.log('Throttling OpenRouter next fallback attempt by 4s to avoid request limits...');
             await new Promise(r => setTimeout(r, 4000));
           }
         }
       }
     }
 
-    // P0 Fallback: Local Deterministic Rule-Based Heuristic Mapper
     if (onModelAttempt) onModelAttempt(localModelName, 'attempt');
     console.warn('All AI models exhausted. Falling back to local rule-based mapper.');
     const leads = this.mapLeadsLocally(rawRows);
@@ -93,7 +85,6 @@ export class AiService {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     for (const row of rawRows) {
-      // Find keys in the row case-insensitively
       const findVal = (patterns: string[]): string | null => {
         for (const pattern of patterns) {
           const key = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(pattern));
@@ -105,12 +96,10 @@ export class AiService {
       let email = findVal(['email', 'mail']);
       const phone = findVal(['phone', 'mobile', 'num', 'contact']);
 
-      // Validate email format
       if (email && !emailRegex.test(email)) {
         email = null;
       }
 
-      // Format notes from leftover unmapped columns
       const leftoverNotes: string[] = [];
       for (const [key, val] of Object.entries(row)) {
         const lowerKey = key.toLowerCase();
@@ -128,7 +117,6 @@ export class AiService {
         }
       }
 
-      // Extract country code if present (e.g. +91 9999999999)
       let countryCode = '+91';
       let cleanPhone = phone || '';
       if (cleanPhone.startsWith('+')) {
@@ -140,12 +128,10 @@ export class AiService {
       }
       cleanPhone = cleanPhone.replace(/[^0-9]/g, '');
 
-      // Guard: must have either valid email or valid phone
       if (!email && cleanPhone.length < 6) {
         continue;
       }
 
-      // Parse status
       let crmStatus = 'GOOD_LEAD_FOLLOW_UP';
       const rawStatus = findVal(['status', 'stage']);
       if (rawStatus) {
@@ -155,7 +141,6 @@ export class AiService {
         else if (norm.includes('NOTCONNECT') || norm.includes('NOANSWER')) crmStatus = 'DID_NOT_CONNECT';
       }
 
-      // Parse data source
       let dataSource = 'leads_on_demand';
       const rawSource = findVal(['source']);
       if (rawSource) {
@@ -193,8 +178,7 @@ export class AiService {
   private static async callGemini(prompt: string): Promise<any[]> {
     const ai = new GoogleGenerativeAI(this.geminiKey);
     const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    // Strict 8-second request timeout race to prevent worker thread hangs
+
     const result = await Promise.race([
       model.generateContent(prompt),
       new Promise<any>((_, reject) =>
@@ -205,7 +189,6 @@ export class AiService {
     const text = result.response.text();
     return this.parseJsonResponse(text);
   }
-
 
   private static async callOpenRouter(prompt: string, model: string): Promise<any[]> {
     let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -221,11 +204,9 @@ export class AiService {
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       }),
-      signal: AbortSignal.timeout(8000) // 8 seconds timeout
+      signal: AbortSignal.timeout(8000)
     });
 
-    // If model does not support response_format: json_object (returns 400 Bad Request),
-    // retry without the response_format parameter.
     if (response.status === 400) {
       console.warn(`Model ${model} rejected json_object format. Retrying in text mode...`);
       response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -240,7 +221,7 @@ export class AiService {
           model: model,
           messages: [{ role: 'user', content: prompt }]
         }),
-        signal: AbortSignal.timeout(8000) // 8 seconds timeout
+        signal: AbortSignal.timeout(8000)
       });
     }
 
@@ -291,7 +272,6 @@ ${JSON.stringify(rawRows, null, 2)}
   }
 
   private static parseJsonResponse(text: string): any[] {
-    // Strip markdown formatting if the model ignored instructions
     let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /[0-9]{6,}/;
@@ -328,7 +308,6 @@ ${JSON.stringify(rawRows, null, 2)}
       console.warn('Standard JSON parse failed. Attempting regex extraction...', err);
     }
 
-    // Robust Fallback: extract the JSON array of leads using regex patterns
     const arrayMatch = cleanText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
       try {
